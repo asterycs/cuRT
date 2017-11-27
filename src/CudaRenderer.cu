@@ -12,14 +12,19 @@
 #include "Triangle.hpp"
 
 #define BLOCKWIDTH 8
-#define EPSILON 0.000001f
+#define EPSILON 0.0001f
 #define BIGT 99999.f
 #define SHADOWSAMPLING 64
 #define RECURSIONS 2
 
+__device__ void debug_vec3f(const glm::fvec3& v)
+{
+  printf("%f %f %f\n", v.x, v.y, v.z);
+}
+
 __device__ glm::fvec3 mirrorDirection(const glm::vec3& normal, const glm::vec3& incoming) {
   glm::vec3 ret = incoming - 2 * glm::dot(incoming, normal) * normal;
-  return ret;
+  return glm::normalize(ret);
 }
 
 __device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle, float& t)
@@ -128,16 +133,20 @@ __device__ glm::vec3 areaLightShading(const Light& light, const RaycastResult& r
 
     float maxT = glm::length(shadowRayDir); // Distance to the light
 
+    shadowRayDir = glm::normalize(shadowRayDir);
+
     Ray shadowRay(shadowRayOrigin, glm::normalize(shadowRayDir));
 
     RaycastResult shadowResult = rayCast(shadowRay, triangles, nTriangles);
 
     if ((shadowResult && shadowResult.t >= maxT - EPSILON) || !shadowResult)
     {
-      const float cosOmega = glm::clamp(glm::dot(glm::normalize(shadowRayDir), hitTriangle.normal()), 0.f, 1.f);
-      const float cosL = glm::clamp(glm::dot(-glm::normalize(shadowRayDir), light.getNormal()), 0.f, 1.f);
+
+      const float cosOmega = glm::clamp(glm::dot(shadowRayDir, hitTriangle.normal()), 0.f, 1.f);
+      const float cosL = glm::clamp(glm::dot(-shadowRayDir, light.getNormal()), 0.f, 1.f);
 
       brightness += 1.0f / (glm::dot(shadowRayDir, shadowRayDir) * pdf) * light.getEmission() * cosOmega * cosL;
+
     }
   }
 
@@ -148,30 +157,44 @@ __device__ glm::vec3 areaLightShading(const Light& light, const RaycastResult& r
 
 __device__ glm::fvec3 rayTrace(const Ray& ray, const Triangle* triangles, const int nTriangles, const Camera camera, const MeshDescriptor* meshDescriptors, const int nMeshes, const Light light, curandState_t& curandState1, curandState_t& curandState2, const int recursions)
 {
-  if (recursions == 0)
-    return glm::fvec3(0.f);
 
+  int it = recursions;
+  glm::fvec3 color(0.f);
+
+  // Primary
   RaycastResult result = rayCast(ray, triangles, nTriangles);
 
   if (!result)
-    return glm::fvec3(0.f);
+    return color;
 
-  glm::fvec3 color(0.f);
-
-  const Triangle& hitTriangle = triangles[result.triangleIdx];
-
+  const Triangle* hitTriangle = &triangles[result.triangleIdx];
   const Material* material = getMaterial(result.triangleIdx, meshDescriptors, nMeshes);
 
   color = material->colorAmbient * 0.25f; // Ambient lightning
   color += material->colorDiffuse / glm::pi<float>() * areaLightShading(light, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
 
-  if (glm::length(material->colorSpecular) > 0.0f) {
+  glm::fvec3 filterSpecular = material->colorSpecular;
+  glm::fvec3 reflRayOrigin;
+  glm::fvec3 reflRayDir;
 
-    glm::fvec3 reflRayOrigin = result.point + hitTriangle.normal() * EPSILON;
-    glm::fvec3 reflRayDir = mirrorDirection(hitTriangle.normal(), ray.direction);
-
+  // Secondary or reflections
+  while (glm::length(filterSpecular) > 0.0f && it)
+  {
+    reflRayOrigin = result.point + hitTriangle->normal() * EPSILON;
+    reflRayDir = mirrorDirection(hitTriangle->normal(), ray.direction);
     Ray reflRay = Ray(reflRayOrigin, reflRayDir);
-    color += material->colorSpecular * rayTrace(reflRay, triangles, nTriangles, camera, meshDescriptors, nMeshes, light, curandState1, curandState2, recursions - 1);
+    result = rayCast(reflRay, triangles, nTriangles);
+
+    if (!result)
+      break;
+
+    hitTriangle = &triangles[result.triangleIdx];
+    material = getMaterial(result.triangleIdx, meshDescriptors, nMeshes);
+
+    color += filterSpecular * material->colorAmbient * 0.25f; // Ambient lightning
+    color += filterSpecular * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
+
+    --it;
   }
 
   return color;

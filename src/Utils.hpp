@@ -52,17 +52,6 @@ std::string readFile(const std::string& filePath);
 
 bool fileExists(const std::string& fileName);
 
-
-struct Vertex
-{
-  glm::fvec3 p;
-  glm::fvec3 n;
-  glm::fvec2 t;
-
-  Vertex(void) : p(0.0f), n(0.0f), t(0.0f) {};
-  Vertex(const glm::fvec3& pp, const glm::fvec3& nn, const glm::fvec2& tt) : p(pp), n(nn), t(tt) {};
-};
-
 struct Material
 {
   glm::fvec3 colorAmbient;
@@ -75,6 +64,7 @@ struct Material
   // TextureIndex?
 
   Material() : colorAmbient(0.0f), colorDiffuse(0.0f), colorEmission(0.0f), colorSpecular(0.0f), colorShininess(0.0f) {};
+
 };
 
 
@@ -121,11 +111,11 @@ struct Ray
   glm::fvec3 origin;
   glm::fvec3 direction;
 
-  CUDA_FUNCTION Ray(const glm::fvec3 o, const glm::fvec3 d) : origin(o), direction(d) {};
+  CUDA_FUNCTION Ray(const glm::fvec3& o, const glm::fvec3& d) : origin(o), direction(d) {};
 };
 
 struct RaycastResult {
-  const int triangleIdx;
+  int triangleIdx;
   float t;
   glm::fvec2 uv;
   glm::fvec3 point;
@@ -150,7 +140,7 @@ struct RaycastResult {
     point()
   {}
 
-  CUDA_FUNCTION operator bool() { return triangleIdx != -1; }
+  CUDA_FUNCTION operator bool() { return (triangleIdx != -1); }
 };
 
 #endif

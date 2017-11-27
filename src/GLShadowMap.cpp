@@ -1,4 +1,5 @@
 #include "GLShadowMap.hpp"
+#include "Triangle.hpp"
 
 #include <vector>
 

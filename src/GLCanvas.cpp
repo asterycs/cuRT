@@ -1,4 +1,5 @@
 #include "GLCanvas.hpp"
+#include "Triangle.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 

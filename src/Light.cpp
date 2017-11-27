@@ -1,6 +1,7 @@
 #include "Light.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_access.hpp>
 
 CUDA_HOST_DEVICE Light::Light(const glm::mat4& mat) : modelMat(mat), size(0.15f, 0.15f), emission(200.f, 200.f, 200.f), enabled(true)
 {
@@ -31,19 +32,17 @@ CUDA_HOST_DEVICE const glm::fvec2& Light::getSize() const
   return size;
 }
 
-CUDA_HOST_DEVICE const glm::vec3 Light::getNormal() const
+CUDA_HOST_DEVICE const glm::fvec3 Light::getNormal() const
 {
-  glm::mat4 vm = modelMat;
-  return -glm::normalize(glm::vec3(vm[2]));
+  return -glm::normalize(glm::fvec3(modelMat[2]));
 }
 
-CUDA_HOST_DEVICE const glm::vec3 Light::getPosition() const
+CUDA_HOST_DEVICE const glm::fvec3 Light::getPosition() const
 {
-  glm::mat4 vm = modelMat;
-  return glm::vec3(vm[3]);
+  return glm::fvec3(modelMat[3]);
 }
 
-CUDA_HOST_DEVICE const glm::vec3& Light::getEmission() const
+CUDA_HOST_DEVICE const glm::fvec3& Light::getEmission() const
 {
   return emission;
 }
