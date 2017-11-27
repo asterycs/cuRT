@@ -422,7 +422,7 @@ bool GLContext::isKeyPressed(const int glfwKey) const
   return glfwGetKey(window, glfwKey); 
 }
 
-void GLContext::resize(const glm::ivec2 newSize)
+void GLContext::resize(const glm::ivec2& newSize)
 {
   GL_CHECK(glViewport(0,0,newSize.x, newSize.y));
   this->size = newSize;

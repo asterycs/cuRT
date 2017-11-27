@@ -14,7 +14,7 @@ endif(ENABLE_CUDA)
 
 # Define some variables
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/modules/)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 include(ExternalProject)

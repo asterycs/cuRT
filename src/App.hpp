@@ -32,6 +32,7 @@ public:
     void addLight();
     void createSceneFile(const std::string& filename);
     void loadSceneFile(const std::string& filename);
+    void loadModel(const std::string& modelFile);
 
     void renderToFile(const std::string& sceneFile, const std::string& outFile);
 private:

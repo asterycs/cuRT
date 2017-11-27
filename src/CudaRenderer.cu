@@ -254,6 +254,7 @@ CudaRenderer::~CudaRenderer()
 
 }
 
+
 void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light)
 {
   if (model.getNTriangles() == 0)

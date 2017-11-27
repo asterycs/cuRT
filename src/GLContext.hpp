@@ -29,7 +29,7 @@ public:
   
   void draw(const GLDrawable& scene, const GLLight& light, const Camera& mvp);
   void draw(const GLCanvas& canvas);
-  void resize(const glm::ivec2 newSize);
+  void resize(const glm::ivec2& newSize);
   bool shadersLoaded() const;
   
   glm::ivec2 getSize() const;

@@ -71,3 +71,10 @@ bool fileExists(const std::string& filename)
     std::ifstream infile(filename);
     return infile.good();
 }
+
+std::unique_ptr<Node> createBVH(const Model& model)
+{
+  (void) model;
+
+  return std::make_unique<Node>();
+}

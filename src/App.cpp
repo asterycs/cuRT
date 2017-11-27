@@ -189,8 +189,7 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
     if (result == NFD_OKAY)
     {
       std::cout << "Opening model: " << outPath << std::endl;
-      Model scene = loader.loadOBJ(outPath);
-      glmodel.load(scene);
+      loadModel(outPath);
       free(outPath);
     }
   }
@@ -247,6 +246,13 @@ void App::createSceneFile(const std::string& filename)
   std::cout << "Wrote scene file " << filename << std::endl;
 }
 
+void App::loadModel(const std::string& modelFile)
+{
+  Model scene = loader.loadOBJ(modelFile);
+  glmodel.load(scene);
+  createBVH(scene);
+}
+
 void App::loadSceneFile(const std::string& filename)
 {
   std::ifstream sceneFile;
@@ -266,8 +272,7 @@ void App::loadSceneFile(const std::string& filename)
 
   std::string modelName;
   std::getline(sceneFile, modelName);
-  Model newScene = loader.loadOBJ(modelName);
-  glmodel.load(newScene);
+  loadModel(modelName);
 
   Light newLight;
   sceneFile >> newLight;

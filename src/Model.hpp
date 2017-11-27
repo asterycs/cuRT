@@ -21,6 +21,8 @@ private:
   std::vector<Triangle> triangles;
   std::vector<MeshDescriptor> meshInfos;
   std::string fileName;
+
+  AABB boundingBox;
 };
 
 #endif

@@ -9,6 +9,7 @@
 
 #include <string>
 #include <iostream>
+#include <memory>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/glm.hpp"
@@ -19,6 +20,7 @@
 #define WINDOW_MAXHEIGHT 1080
 
 class Triangle;
+class Model;
 
 #ifndef NDEBUG
   #define GL_CHECK(call) do { \
@@ -74,6 +76,27 @@ struct Material
 
   Material() : colorAmbient(0.0f), colorDiffuse(0.0f), colorEmission(0.0f), colorSpecular(0.0f), colorShininess(0.0f) {};
 };
+
+
+struct AABB
+{
+  glm::fvec3 aa;
+  glm::fvec3 bb;
+
+  AABB(const glm::fvec3& a, const glm::fvec3& b) : aa(glm::max(a, b)), bb(glm::min(a, b)) { }
+  AABB() : aa(0.f), bb(0.f) { }
+};
+
+struct Node
+{
+  AABB bbox;
+  std::unique_ptr<Node> leftChild;
+  std::unique_ptr<Node> rightChild;
+  int startTri;
+  int endTri;
+};
+
+std::unique_ptr<Node> createBVH(const Model& model);
 
 struct MeshDescriptor
 {

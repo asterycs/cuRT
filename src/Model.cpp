@@ -98,9 +98,7 @@ Model::Model(const aiScene *scene, const std::string& fileName) : fileName(fileN
       }
     }
 
-    std::cout << "maxTri: " << glm::to_string(maxTri) << std::endl;
-    std::cout << "minTri: " << glm::to_string(minTri) << std::endl;
-
+  boundingBox = AABB(maxTri, minTri);
 }
 
 const std::vector<Triangle>& Model::getTriangles() const

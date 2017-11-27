@@ -17,14 +17,8 @@ public:
 
   void renderToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light);
 
-  void mapModel();
-
-  void unmapModel();
-
-  void unregisterModel();
-
 private:
-  thrust::device_vector<curandState_t> curandStateDevVecX;
+  thrust::device_vector<curandState_t> curandStateDevVecX; // For area light sampling
   thrust::device_vector<curandState_t> curandStateDevVecY;
 };
 
