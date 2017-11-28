@@ -115,21 +115,24 @@ __device__ RaycastResult rayCast(const Ray& ray, const Triangle* triangles, cons
 
 
 template<typename curandState>
-__device__ glm::vec3 areaLightShading(const Light& light, const RaycastResult& result, const Triangle* triangles, const unsigned int nTriangles, curandState& curandState1, curandState& curandState2, const unsigned int supersampling)
+__device__ glm::fvec3 areaLightShading(const Light& light, const RaycastResult& result, const Triangle* triangles, const unsigned int nTriangles, curandState& curandState1, curandState& curandState2, const unsigned int supersampling)
 {
+  glm::fvec3 brightness(0.f);
+
+  if (!light.isEnabled())
+    return brightness;
+
   const Triangle& hitTriangle = triangles[result.triangleIdx];
 
-  glm::vec3 lightSamplePoint;
+  glm::fvec3 lightSamplePoint;
   float pdf;
-
-  glm::vec3 brightness(0.f);
 
   for (unsigned int i = 0; i < supersampling; ++i) // Maybe utilize dynamic parallelism here?
   {
     light.sample(pdf, lightSamplePoint, curandState1, curandState2);
 
-    glm::vec3 shadowRayOrigin = result.point + hitTriangle.normal() * EPSILON;
-    glm::vec3 shadowRayDir = lightSamplePoint - shadowRayOrigin;
+    glm::fvec3 shadowRayOrigin = result.point + hitTriangle.normal() * EPSILON;
+    glm::fvec3 shadowRayDir = lightSamplePoint - shadowRayOrigin;
 
     float maxT = glm::length(shadowRayDir); // Distance to the light
 

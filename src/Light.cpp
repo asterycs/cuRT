@@ -34,7 +34,9 @@ CUDA_HOST_DEVICE const glm::fvec2& Light::getSize() const
 
 CUDA_HOST_DEVICE const glm::fvec3 Light::getNormal() const
 {
-  return -glm::normalize(glm::fvec3(modelMat[2]));
+  const glm::fvec3 ret = -glm::normalize(glm::fvec3(modelMat[2]));
+
+  return ret;
 }
 
 CUDA_HOST_DEVICE const glm::fvec3 Light::getPosition() const
@@ -64,6 +66,7 @@ CUDA_HOST_DEVICE void Light::disable()
 
 CUDA_HOST std::ostream& operator<<(std::ostream& os, const Light& light)
 {
+  os << light.enabled << " ";
   os << light.emission.x << " " << light.emission.y << " " << light.emission.z << " ";
   os << light.size.x << " " << light.size.y << " ";
 
@@ -82,6 +85,7 @@ CUDA_HOST std::ostream& operator<<(std::ostream& os, const Light& light)
 
 CUDA_HOST std::istream& operator>>(std::istream& is, Light& light)
 {
+  is >> light.enabled;
   is >> light.emission.x >> light.emission.y >> light.emission.z;
   is >> light.size.x >> light.size.y;
 
