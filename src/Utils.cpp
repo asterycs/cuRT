@@ -1,4 +1,5 @@
 #include "Utils.hpp"
+#include "Model.hpp"
 
 #include <fstream>
 
@@ -74,7 +75,37 @@ bool fileExists(const std::string& filename)
 
 std::unique_ptr<Node> createBVH(const Model& model)
 {
-  (void) model;
+  const AABB& modelBbox = model.getBbox();
+  const glm::vec3 diff = modelBbox.max - modelBbox.min;
+  const float maxDiff = std::max(std::max(diff.x, diff.y), diff.z);
+
+  std::vector<Triangle> normTris;
+  std::copy(model.getTriangles().begin(), model.getTriangles().end(), std::back_inserter(normTris));
+
+  for (int d = 0; d < 3; ++d)
+  {
+    if (modelBbox.min[d] < 0.f)
+    {
+      for (auto& tri : normTris)
+      {
+        for (unsigned int vi = 0; vi < 3; ++vi)
+        {
+          tri.vertices[vi].p[d] += modelBbox.min[d];
+        }
+      }
+    }
+  }
+
+  if (maxDiff > 1.f)
+  {
+    for (auto& tri : normTris)
+    {
+      for (unsigned int vi = 0; vi < 3; ++vi)
+      {
+        tri.vertices[vi].p /= maxDiff;
+      }
+    }
+  }
 
   return std::make_unique<Node>();
 }

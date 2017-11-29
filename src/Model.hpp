@@ -17,6 +17,7 @@ public:
   const std::vector<Triangle>& getTriangles() const;
   const std::vector<MeshDescriptor>& getMeshDescriptors() const;
   const std::string& getFileName() const;
+  const AABB& getBbox() const;
 private:
   std::vector<Triangle> triangles;
   std::vector<MeshDescriptor> meshInfos;

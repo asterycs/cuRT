@@ -206,8 +206,8 @@ __device__ glm::fvec3 rayTrace(const Ray& ray, const Triangle* triangles, const 
 template<typename curandState>
 __global__ void initRand(const int /*seed*/, curandState* const curandStateDevPtr, const glm::ivec2 size)
 {
-  int x = threadIdx.x + blockIdx.x * blockDim.x;
-  int y = threadIdx.y + blockIdx.y * blockDim.y;
+  const int x = threadIdx.x + blockIdx.x * blockDim.x;
+  const int y = threadIdx.y + blockIdx.y * blockDim.y;
 
   if (x >= size.x || y >= size.y)
     return;
@@ -239,11 +239,25 @@ __global__ void cudaRender(const cudaSurfaceObject_t canvas, const glm::ivec2 ca
 
   Ray ray = camera.generateRay(nic, ar);
 
-  glm::fvec3 color = rayTrace(ray, triangles, nTriangles, camera, meshDescriptors, nMeshes, light, curandStateDevXPtr[x + WINDOW_MAXWIDTH * y], curandStateDevYPtr[x + WINDOW_MAXWIDTH * y], RECURSIONS);
+  glm::fvec3 color = rayTrace(ray, triangles, nTriangles, camera, meshDescriptors, nMeshes, light, curandStateDevXPtr[x + canvasSize.x * y], curandStateDevYPtr[x + canvasSize.x * y], RECURSIONS);
 
   writeToCanvas(x, y, canvas, canvasSize, color);
 
   return;
+}
+
+void CudaRenderer::resize(const glm::ivec2& size)
+{
+  curandStateDevVecX.resize(size.x * size.y);
+  curandStateDevVecY.resize(size.x * size.y);
+  curandState_t* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
+  curandState_t* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
+
+  dim3 block(BLOCKWIDTH, BLOCKWIDTH);
+  dim3 grid( (size.x + block.x - 1) / block.x, (size.y + block.y - 1) / block.y);
+  initRand<<<grid, block>>>(0, curandStateDevXRaw, size);
+  initRand<<<grid, block>>>(5, curandStateDevYRaw, size);
+  CUDA_CHECK(cudaDeviceSynchronize()); // Would need to wait anyway when initializing models etc.
 }
 
 
@@ -263,16 +277,7 @@ CudaRenderer::CudaRenderer() : curandStateDevVecX(), curandStateDevVecY()
 
   CUDA_CHECK(cudaSetDevice(cudaDevices[0]));
 
-  curandStateDevVecX.resize(WINDOW_MAXWIDTH * WINDOW_MAXHEIGHT);
-  curandStateDevVecY.resize(WINDOW_MAXWIDTH * WINDOW_MAXHEIGHT);
-  curandState_t* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
-  curandState_t* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
-
-  dim3 block(BLOCKWIDTH, BLOCKWIDTH);
-  dim3 grid( (WINDOW_MAXWIDTH + block.x - 1) / block.x, (WINDOW_MAXHEIGHT + block.y - 1) / block.y);
-  initRand<<<grid, block>>>(0, curandStateDevXRaw, glm::ivec2(WINDOW_MAXWIDTH, WINDOW_MAXHEIGHT));
-  initRand<<<grid, block>>>(5, curandStateDevYRaw, glm::ivec2(WINDOW_MAXWIDTH, WINDOW_MAXHEIGHT));
-  CUDA_CHECK(cudaDeviceSynchronize()); // Would need to wait anyway when initializing models etc.
+  resize(glm::ivec2(WWIDTH, WHEIGHT));
 }
 
 CudaRenderer::~CudaRenderer()
@@ -286,7 +291,7 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
   if (model.getNTriangles() == 0)
     return;
 
-  glm::ivec2 canvasSize = canvas.getSize();
+  const glm::ivec2& canvasSize = canvas.getSize();
 
   curandState_t* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
   curandState_t* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);

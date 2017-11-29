@@ -115,3 +115,8 @@ const std::string& Model::getFileName() const
 {
   return fileName;
 }
+
+const AABB& Model::getBbox() const
+{
+  return this->boundingBox;
+}

@@ -38,14 +38,11 @@ void App::resizeCallbackEvent(int width, int height)
   int newWidth = width;
   int newHeight = height;
 
-  if (width >= WINDOW_MAXWIDTH)
-    newWidth = WINDOW_MAXWIDTH;
+  const glm::ivec2 newSize = glm::ivec2(newWidth, newHeight);
 
-  if (height >= WINDOW_MAXHEIGHT)
-    newHeight = WINDOW_MAXHEIGHT;
-
-  glcontext.resize(glm::ivec2(newWidth, newHeight));
-  glcanvas.resize(glm::ivec2(newWidth, newHeight));
+  glcontext.resize(newSize);
+  glcanvas.resize(newSize);
+  cudaRenderer.resize(newSize);
 }
 
 void App::MainLoop()

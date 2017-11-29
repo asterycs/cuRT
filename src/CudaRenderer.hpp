@@ -16,6 +16,7 @@ public:
   ~CudaRenderer();
 
   void renderToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light);
+  void resize(const glm::ivec2& size);
 
 private:
   thrust::device_vector<curandState_t> curandStateDevVecX; // For area light sampling

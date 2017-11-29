@@ -16,8 +16,6 @@
 
 #define WWIDTH 600
 #define WHEIGHT 600
-#define WINDOW_MAXWIDTH 1920
-#define WINDOW_MAXHEIGHT 1080
 
 class Triangle;
 class Model;
@@ -70,11 +68,11 @@ struct Material
 
 struct AABB
 {
-  glm::fvec3 aa;
-  glm::fvec3 bb;
+  glm::fvec3 max;
+  glm::fvec3 min;
 
-  AABB(const glm::fvec3& a, const glm::fvec3& b) : aa(glm::max(a, b)), bb(glm::min(a, b)) { }
-  AABB() : aa(0.f), bb(0.f) { }
+  AABB(const glm::fvec3& a, const glm::fvec3& b) : max(glm::max(a, b)), min(glm::min(a, b)) { }
+  AABB() : max(0.f), min(0.f) { }
 };
 
 struct Node
