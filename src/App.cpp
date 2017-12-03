@@ -247,7 +247,6 @@ void App::loadModel(const std::string& modelFile)
 {
   Model scene = loader.loadOBJ(modelFile);
   glmodel.load(scene);
-  createBVH(scene);
 }
 
 void App::loadSceneFile(const std::string& filename)

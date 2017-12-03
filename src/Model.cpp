@@ -1,5 +1,8 @@
 #include "Model.hpp"
 
+#include <numeric>
+#include <memory>
+
 #include <glm/gtx/string_cast.hpp>
 
 glm::fvec3 ai2glm3f(aiColor3D v)
@@ -13,6 +16,12 @@ Model::Model()
 }
 
 Model::Model(const aiScene *scene, const std::string& fileName) : fileName(fileName)
+{
+  initialize(scene);
+  createBVH();
+}
+
+void Model::initialize(const aiScene *scene)
 {
   std::cout << "Creating model with " << scene->mNumMeshes << " meshes" << std::endl;
   
@@ -120,3 +129,170 @@ const AABB& Model::getBbox() const
 {
   return this->boundingBox;
 }
+
+// From https://devblogs.nvidia.com/parallelforall/thinking-parallel-part-iii-tree-construction-gpu/
+unsigned int expandBits(unsigned int v)
+{
+    v = (v * 0x00010001u) & 0xFF0000FFu;
+    v = (v * 0x00000101u) & 0x0F00F00Fu;
+    v = (v * 0x00000011u) & 0xC30C30C3u;
+    v = (v * 0x00000005u) & 0x49249249u;
+    return v;
+}
+
+AABB computeBB(Node& node, std::vector<Triangle>& triangles, std::vector<unsigned int>& sortedMorton)
+{
+  // Construct BB
+  glm::fvec3 minXYZ = glm::fvec3(std::numeric_limits<float>::max());
+  glm::fvec3 maxXYZ = glm::fvec3(-std::numeric_limits<float>::max());
+
+  if (node.endTri - node.startTri > 0)
+  {
+    for (int ti = node.startTri; ti < node.endTri; ti++)
+    {
+      unsigned int triIdx = sortedMorton[ti];
+      glm::fvec3 pmin = triangles[triIdx].min();
+      glm::fvec3 pmax = triangles[triIdx].max();
+
+      minXYZ = glm::min(pmin, minXYZ);
+      maxXYZ = glm::max(pmax, maxXYZ);
+    }
+  }
+  else
+  {
+    minXYZ = glm::fvec3(0.f);
+    maxXYZ = glm::fvec3(0.f);
+  }
+
+  AABB ret(minXYZ, maxXYZ);
+
+  return ret;
+}
+
+void Model::createBVH()
+{
+  // This is just a temporary CPU version. I'll move it to the GPU at some point.
+  const AABB& modelBbox = boundingBox;
+  const glm::vec3 diff = modelBbox.max - modelBbox.min;
+  const float maxDiff = std::max(std::max(diff.x, diff.y), diff.z);
+
+  std::vector<unsigned int> mortonCodes(getTriangles().size());
+  std::vector<unsigned int> mortonSortedTriIds(mortonCodes.size());
+  std::iota(mortonSortedTriIds.begin(), mortonSortedTriIds.end(), 0);
+
+  std::vector<Triangle> normTris;
+  std::copy(getTriangles().begin(), getTriangles().end(), std::back_inserter(normTris));
+
+  glm::fvec3 toAdd = -modelBbox.min;
+
+  for (unsigned int d = 0; d < 3; ++d)
+  {
+    if (toAdd[d] < 0.f)
+      toAdd[d] = 0.f;
+  }
+
+  for (auto& tri : normTris)
+  {
+    for (auto& v : tri.vertices)
+    {
+      v.p += toAdd;
+    }
+  }
+
+  for (auto& tri : normTris)
+  {
+    for (auto& v : tri.vertices)
+    {
+      v.p /= maxDiff;
+    }
+  }
+
+  // Normalization done, now get the the centroids and encode every dimension as a 10 bit integer
+  for (unsigned int triIdx = 0; triIdx < getTriangles().size(); ++triIdx)
+  {
+    const auto& tri = getTriangles()[triIdx];
+
+    glm::fvec3 centr(0.f);
+
+    for (const auto& v : tri.vertices)
+    {
+      centr += v.p;
+    }
+
+    centr /= 3.f;
+
+
+    glm::ivec3 zOrder = glm::ivec3(centr.x * 1023, centr.y * 1023, centr.z * 1023); // 10 bits
+
+    unsigned int xExpanded = expandBits(zOrder.x);
+    unsigned int yExpanded = expandBits(zOrder.y);
+    unsigned int zExpanded = expandBits(zOrder.z);
+
+
+    mortonCodes[triIdx] = 4 * xExpanded + 2 * yExpanded + zExpanded;
+  }
+
+
+  std::sort(mortonSortedTriIds.begin(), mortonSortedTriIds.end(), [&mortonCodes](unsigned int& l, unsigned int& r) -> bool
+      {
+        return mortonCodes[l] < mortonCodes[r];
+      });
+
+
+  std::array<Node*, 128> stack;
+  int stackIdx = 1;
+
+  std::unique_ptr<Node> root = std::make_unique<Node>();
+  root->startTri = 0;
+  root->endTri = getTriangles().size();
+  root->bbox = modelBbox;
+
+  stack[0] = root.get();
+
+  while (stackIdx > 0)
+  {
+    --stackIdx;
+
+    Node* currentNode = stack[stackIdx];
+
+    const unsigned int nTris = currentNode->endTri - currentNode->startTri;
+
+    if (nTris > 8)
+    {
+      currentNode->leftChild = std::make_unique<Node>();
+      currentNode->rightChild = std::make_unique<Node>();
+
+      currentNode->leftChild->startTri = currentNode->startTri;
+      currentNode->leftChild->endTri = currentNode->startTri + nTris / 2;
+
+      currentNode->rightChild->startTri = currentNode->startTri + nTris / 2 + 1;
+      currentNode->rightChild->endTri = currentNode->endTri;
+
+      currentNode->leftChild->bbox = computeBB(*currentNode->leftChild, triangles, mortonSortedTriIds);
+      currentNode->rightChild->bbox = computeBB(*currentNode->leftChild, triangles, mortonSortedTriIds);
+
+      stack[stackIdx] = &*currentNode->leftChild;
+      ++stackIdx;
+      stack[stackIdx] = &*currentNode->rightChild;
+      ++stackIdx;
+    }
+  }
+
+  this->bvh = std::move(root);
+
+/*
+  glm::vec3 lmax(-9999.f);
+  glm::vec3 lmin(9999.f);
+
+  for (auto& tri : normTris)
+  {
+    lmax = glm::max(tri.max(), lmax);
+    lmin = glm::min(tri.min(), lmin);
+  }
+
+  std::cout << glm::to_string(lmax) << std::endl;
+  std::cout << glm::to_string(lmin) << std::endl;
+*/
+  return;
+}
+

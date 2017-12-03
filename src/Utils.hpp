@@ -81,7 +81,7 @@ struct Node
   std::unique_ptr<Node> leftChild;
   std::unique_ptr<Node> rightChild;
   int startTri;
-  int endTri;
+  int endTri; // exclusive
 };
 
 std::unique_ptr<Node> createBVH(const Model& model);

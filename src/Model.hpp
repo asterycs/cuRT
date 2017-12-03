@@ -18,12 +18,15 @@ public:
   const std::vector<MeshDescriptor>& getMeshDescriptors() const;
   const std::string& getFileName() const;
   const AABB& getBbox() const;
+  void createBVH();
 private:
+  void initialize(const aiScene *scene);
   std::vector<Triangle> triangles;
   std::vector<MeshDescriptor> meshInfos;
   std::string fileName;
 
   AABB boundingBox;
+  std::unique_ptr<Node> bvh;
 };
 
 #endif
