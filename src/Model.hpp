@@ -16,17 +16,22 @@ public:
   Model(const aiScene *scene, const std::string& fileName);
   const std::vector<Triangle>& getTriangles() const;
   const std::vector<MeshDescriptor>& getMeshDescriptors() const;
+  const std::vector<MeshDescriptor>& getBVHBoxDescriptors() const;
   const std::string& getFileName() const;
   const AABB& getBbox() const;
   void createBVH();
+  std::vector<unsigned int> getMortonCodes() const;
 private:
   void initialize(const aiScene *scene);
+  void createBVHColors();
+
   std::vector<Triangle> triangles;
-  std::vector<MeshDescriptor> meshInfos;
+  std::vector<MeshDescriptor> meshDescriptors;
+  std::vector<MeshDescriptor> bvhBoxDescriptors; // For bvh visualization
   std::string fileName;
 
   AABB boundingBox;
-  std::unique_ptr<Node> bvh;
+  std::vector<Node> bvh;
 };
 
 #endif

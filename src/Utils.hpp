@@ -78,10 +78,9 @@ struct AABB
 struct Node
 {
   AABB bbox;
-  std::unique_ptr<Node> leftChild;
-  std::unique_ptr<Node> rightChild;
   int startTri;
-  int endTri; // exclusive
+  int nTri; // exclusive
+  int rightIndex;
 };
 
 std::unique_ptr<Node> createBVH(const Model& model);

@@ -25,6 +25,8 @@ public:
   GLuint getNTriangles() const;
   GLuint getNMeshes() const;
 
+  const Model& getModel() const;
+
   const std::vector<MeshDescriptor>& getMeshDescriptors() const; // Used when drawing OpenGL
 
   Triangle* cudaGetMappedTrianglePtr();

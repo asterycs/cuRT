@@ -215,6 +215,7 @@ bool GLContext::shadersLoaded() const
 {
   if (modelShader.isLoaded() \
  && lightShader.isLoaded() \
+ && canvasShader.isLoaded() \
  && depthShader.isLoaded() \
  && textShader.isLoaded())
     return true;
@@ -271,11 +272,10 @@ std::string GLContext::getFPS()
   return s;
 }
 
-void GLContext::draw(const GLDrawable& model, const GLLight& light, const Camera& camera)
+void GLContext::draw(const GLModel& model, const GLLight& light, const Camera& camera)
 {
-  updateShadowMap(model, light, camera);
+  updateShadowMap(model, light);
   //drawShadowMap(light); // For debug
-  (void) camera;
   drawModel(model, camera, light);
   drawLight(light, camera);
 }
@@ -304,7 +304,7 @@ void GLContext::drawShadowMap(const GLLight& light)
   canvasShader.unbind();
 }
 
-void GLContext::updateShadowMap(const GLDrawable& model, const GLLight& light, const Camera& camera)
+void GLContext::updateShadowMap(const GLDrawable& model, const GLLight& light)
 {
   GLuint frameBufferID = light.getShadowMap().getFrameBufferID();
 
@@ -317,8 +317,6 @@ void GLContext::updateShadowMap(const GLDrawable& model, const GLLight& light, c
   const auto& meshDescriptors = model.getMeshDescriptors();
   const glm::ivec2 depthTextureSize = light.getShadowMap().getSize();
   GL_CHECK(glViewport(0, 0, depthTextureSize.x, depthTextureSize.y));
-  
-  (void) camera;
 
   depthShader.bind();
   GL_CHECK(glBindVertexArray(vaoID));
@@ -335,7 +333,7 @@ void GLContext::updateShadowMap(const GLDrawable& model, const GLLight& light, c
   return;
 }
 
-void GLContext::drawModel(const GLDrawable& model, const Camera& camera, const GLLight& light)
+void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLight& light)
 {
   if (!shadersLoaded() || model.getNTriangles() == 0)
     return;
@@ -345,8 +343,9 @@ void GLContext::drawModel(const GLDrawable& model, const Camera& camera, const G
   GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
   const auto& vaoID = model.getVaoID();
-  const auto& meshDescriptors = model.getMeshDescriptors();
-      
+  const auto& meshDescriptors = model.getMeshDescriptors(); // TODO: Switch between bvh visualization and normal colors
+  //const auto& meshDescriptors = model.getBVHBoxDescriptors();
+
   modelShader.bind();
   modelShader.updateUniformMat4f("posToCamera", camera.getMVP(size));
   //modelShader.updateUniformMat4f("normalToCamera", glm::transpose(glm::inverse(camera.getMVP(size))));

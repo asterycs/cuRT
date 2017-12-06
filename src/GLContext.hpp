@@ -27,7 +27,7 @@ public:
   GLContext();
   ~GLContext();
   
-  void draw(const GLDrawable& scene, const GLLight& light, const Camera& mvp);
+  void draw(const GLModel& scene, const GLLight& light, const Camera& mvp);
   void draw(const GLCanvas& canvas);
   void resize(const glm::ivec2& newSize);
   bool shadersLoaded() const;
@@ -49,10 +49,10 @@ public:
   bool initFT();
   void renderText(const std::string& text, const float x, const float y);
 private:
-  void drawModel(const GLDrawable& model, const Camera& camera, const GLLight& light);
+  void drawModel(const GLModel& model, const Camera& camera, const GLLight& light);
   void drawLight(const GLLight& light, const Camera& camera);
   void drawShadowMap(const GLLight& light);
-  void updateShadowMap(const GLDrawable& model, const GLLight& light, const Camera& camera);
+  void updateShadowMap(const GLDrawable& model, const GLLight& light);
   void updateUniformMat4f(const glm::mat4& mat, const std::string& identifier);
   void updateUniform3fv(const glm::vec3& vec, const std::string& identifier);
 

@@ -197,6 +197,8 @@ __device__ glm::fvec3 rayTrace(const Ray& ray, const Triangle* triangles, const 
     color += filterSpecular * material->colorAmbient * 0.25f; // Ambient lightning
     color += filterSpecular * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
 
+    filterSpecular = material->colorSpecular;
+
     --it;
   }
 

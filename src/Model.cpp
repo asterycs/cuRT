@@ -2,6 +2,8 @@
 
 #include <numeric>
 #include <memory>
+#include <queue>
+#include <cmath>
 
 #include <glm/gtx/string_cast.hpp>
 
@@ -19,6 +21,7 @@ Model::Model(const aiScene *scene, const std::string& fileName) : fileName(fileN
 {
   initialize(scene);
   createBVH();
+  createBVHColors();
 }
 
 void Model::initialize(const aiScene *scene)
@@ -30,7 +33,7 @@ void Model::initialize(const aiScene *scene)
   glm::fvec3 maxTri(-999.f,-999.f,-999.f);
   glm::fvec3 minTri(999.f,999.f,999.f);
 
-    for (unsigned int mi = 0; mi < scene->mNumMeshes; mi++)
+    for (std::size_t mi = 0; mi < scene->mNumMeshes; mi++)
     {
       aiMesh *mesh = scene->mMeshes[mi];
       
@@ -64,12 +67,12 @@ void Model::initialize(const aiScene *scene)
         material.colorShininess  = ai2glm3f(aiShininess);
         material.colorTransparent= ai2glm3f(aiTransparent);
 
-        MeshDescriptor meshInfo = MeshDescriptor(triangleOffset, mesh->mNumFaces, material);
-        meshInfos.push_back(meshInfo);
+        MeshDescriptor meshDescr = MeshDescriptor(triangleOffset, mesh->mNumFaces, material);
+        meshDescriptors.push_back(meshDescr);
         triangleOffset += mesh->mNumFaces;
       }
       
-      for (unsigned int vi = 0; vi < mesh->mNumVertices; vi++)
+      for (std::size_t vi = 0; vi < mesh->mNumVertices; vi++)
       {
         Vertex newVertex;
         auto& oldVertex = mesh->mVertices[vi];
@@ -91,7 +94,7 @@ void Model::initialize(const aiScene *scene)
         vertices.push_back(newVertex);
       }
 
-      for (unsigned int i = 0; i < mesh->mNumFaces; ++i)
+      for (std::size_t i = 0; i < mesh->mNumFaces; ++i)
       {
         aiFace& face = mesh->mFaces[i];
 
@@ -107,7 +110,6 @@ void Model::initialize(const aiScene *scene)
       }
     }
 
-  boundingBox = AABB(maxTri, minTri);
 }
 
 const std::vector<Triangle>& Model::getTriangles() const
@@ -117,7 +119,12 @@ const std::vector<Triangle>& Model::getTriangles() const
 
 const std::vector<MeshDescriptor>& Model::getMeshDescriptors() const
 {
-  return meshInfos;
+  return meshDescriptors;
+}
+
+const std::vector<MeshDescriptor>& Model::getBVHBoxDescriptors() const
+{
+  return bvhBoxDescriptors;
 }
 
 const std::string& Model::getFileName() const
@@ -140,17 +147,18 @@ unsigned int expandBits(unsigned int v)
     return v;
 }
 
-AABB computeBB(Node& node, std::vector<Triangle>& triangles, std::vector<unsigned int>& sortedMorton)
+AABB computeBB(Node& node, const std::vector<Triangle>& triangles, const std::vector<unsigned int>& sortedMorton)
 {
   // Construct BB
   glm::fvec3 minXYZ = glm::fvec3(std::numeric_limits<float>::max());
   glm::fvec3 maxXYZ = glm::fvec3(-std::numeric_limits<float>::max());
 
-  if (node.endTri - node.startTri > 0)
+  if (node.nTri > 0)
   {
-    for (int ti = node.startTri; ti < node.endTri; ti++)
+    for (int ti = node.startTri; ti < node.startTri + node.nTri; ti++)
     {
       unsigned int triIdx = sortedMorton[ti];
+
       glm::fvec3 pmin = triangles[triIdx].min();
       glm::fvec3 pmax = triangles[triIdx].max();
 
@@ -169,23 +177,22 @@ AABB computeBB(Node& node, std::vector<Triangle>& triangles, std::vector<unsigne
   return ret;
 }
 
-void Model::createBVH()
+std::vector<unsigned int> Model::getMortonCodes() const
 {
-  // This is just a temporary CPU version. I'll move it to the GPU at some point.
+  // Create Morton codes
+  const auto& triangles = getTriangles();
   const AABB& modelBbox = boundingBox;
   const glm::vec3 diff = modelBbox.max - modelBbox.min;
   const float maxDiff = std::max(std::max(diff.x, diff.y), diff.z);
 
-  std::vector<unsigned int> mortonCodes(getTriangles().size());
-  std::vector<unsigned int> mortonSortedTriIds(mortonCodes.size());
-  std::iota(mortonSortedTriIds.begin(), mortonSortedTriIds.end(), 0);
+  std::vector<unsigned int> mortonCodes(triangles.size());
 
   std::vector<Triangle> normTris;
-  std::copy(getTriangles().begin(), getTriangles().end(), std::back_inserter(normTris));
+  std::copy(triangles.begin(), triangles.end(), std::back_inserter(normTris));
 
   glm::fvec3 toAdd = -modelBbox.min;
 
-  for (unsigned int d = 0; d < 3; ++d)
+  for (std::size_t d = 0; d < 3; ++d)
   {
     if (toAdd[d] < 0.f)
       toAdd[d] = 0.f;
@@ -208,9 +215,9 @@ void Model::createBVH()
   }
 
   // Normalization done, now get the the centroids and encode every dimension as a 10 bit integer
-  for (unsigned int triIdx = 0; triIdx < getTriangles().size(); ++triIdx)
+  for (std::size_t triIdx = 0; triIdx < triangles.size(); ++triIdx)
   {
-    const auto& tri = getTriangles()[triIdx];
+    const auto& tri = triangles[triIdx];
 
     glm::fvec3 centr(0.f);
 
@@ -232,67 +239,132 @@ void Model::createBVH()
     mortonCodes[triIdx] = 4 * xExpanded + 2 * yExpanded + zExpanded;
   }
 
+  return mortonCodes;
+}
 
+void Model::createBVHColors()
+{
+  // Assign unique colors to primitives in the same leaf. Useful when debugging.
+  std::vector<MeshDescriptor> descriptors;
+
+  for (const auto& node : bvh)
+  {
+    if (node.rightIndex == -1) // Is leaf
+    {
+      float r = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+      float g = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+      float b = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+
+      Material material;
+      material.colorAmbient = glm::fvec3(r, g, b);
+      material.colorDiffuse = glm::fvec3(r, g, b);
+
+      MeshDescriptor descr;
+      descr.start = node.startTri;
+      descr.nTriangles = node.nTri;
+      descr.material = material;
+
+      descriptors.push_back(descr);
+    }
+  }
+
+  bvhBoxDescriptors = descriptors;
+}
+
+void Model::createBVH()
+{
+  auto mortonCodes = getMortonCodes();
+
+  // Sort indices instead of primitives
+  std::vector<unsigned int> mortonSortedTriIds(mortonCodes.size());
+  std::iota(mortonSortedTriIds.begin(), mortonSortedTriIds.end(), 0);
+
+  // TODO: Change to radix sort on GPU
   std::sort(mortonSortedTriIds.begin(), mortonSortedTriIds.end(), [&mortonCodes](unsigned int& l, unsigned int& r) -> bool
       {
         return mortonCodes[l] < mortonCodes[r];
       });
 
 
-  std::array<Node*, 128> stack;
-  int stackIdx = 1;
+  // Now for the actual tree.
+  // This is a simple top down approach that places the nodes in an array.
+  // This makes the transfer to GPU simpler and more effective.
+  std::queue<Node> queue;
+  std::queue<int> parentIndices;
 
-  std::unique_ptr<Node> root = std::make_unique<Node>();
-  root->startTri = 0;
-  root->endTri = getTriangles().size();
-  root->bbox = modelBbox;
+  std::vector<Node> finishedNodes;
+  std::vector<int> touchCount;
+  const unsigned int nTris = triangles.size();
+  const unsigned int nodecountAppr = std::pow(2.f, std::ceil(std::log2(nTris / 8.f)) + 1) - 1;;
+  finishedNodes.reserve(nodecountAppr);
+  touchCount.reserve(nodecountAppr);
 
-  stack[0] = root.get();
+  int leafCount = 0;
+  int nodeCount = 0;
 
-  while (stackIdx > 0)
-  {
-    --stackIdx;
+  Node first;
+  first.startTri = 0;
+  first.nTri = triangles.size();
+  first.bbox = computeBB(first, triangles, mortonSortedTriIds);
+  first.rightIndex = -1;
 
-    Node* currentNode = stack[stackIdx];
+  queue.push(first);
+  parentIndices.push(-1);
 
-    const unsigned int nTris = currentNode->endTri - currentNode->startTri;
 
-    if (nTris > 8)
+  while (!queue.empty()) {
+
+    Node node = queue.front();
+    queue.pop();
+    int parentIndex = parentIndices.front();
+    parentIndices.pop();
+
+    int tris = node.nTri - node.startTri;
+
+    if (tris > 8)
     {
-      currentNode->leftChild = std::make_unique<Node>();
-      currentNode->rightChild = std::make_unique<Node>();
+      Node left, right;
+      left.startTri = node.startTri;
+      left.nTri = tris / 2;
+      left.bbox = computeBB(left, triangles, mortonSortedTriIds);
 
-      currentNode->leftChild->startTri = currentNode->startTri;
-      currentNode->leftChild->endTri = currentNode->startTri + nTris / 2;
+      right.startTri = left.startTri + tris / 2;
+      right.nTri = node.nTri - right.startTri;
+      right.bbox = computeBB(right, triangles, mortonSortedTriIds);
 
-      currentNode->rightChild->startTri = currentNode->startTri + nTris / 2 + 1;
-      currentNode->rightChild->endTri = currentNode->endTri;
+      queue.push(left);
+      queue.push(right);
 
-      currentNode->leftChild->bbox = computeBB(*currentNode->leftChild, triangles, mortonSortedTriIds);
-      currentNode->rightChild->bbox = computeBB(*currentNode->leftChild, triangles, mortonSortedTriIds);
-
-      stack[stackIdx] = &*currentNode->leftChild;
-      ++stackIdx;
-      stack[stackIdx] = &*currentNode->rightChild;
-      ++stackIdx;
+      parentIndices.push(nodeCount);
+      parentIndices.push(nodeCount);
     }
+    else
+    {
+      ++leafCount;
+      node.rightIndex = -1;
+    }
+
+    finishedNodes.push_back(node);
+
+    touchCount.push_back(0);
+    touchCount[nodeCount] = 0;
+    ++nodeCount;
+
+    if (parentIndex != -1)
+    {
+      ++touchCount[parentIndex];
+
+      if (touchCount[parentIndex] == 2)
+      {
+        finishedNodes[parentIndex].rightIndex = nodeCount - 1;
+      }
+    }
+
   }
 
-  this->bvh = std::move(root);
 
-/*
-  glm::vec3 lmax(-9999.f);
-  glm::vec3 lmin(9999.f);
+  this->bvh = finishedNodes;
 
-  for (auto& tri : normTris)
-  {
-    lmax = glm::max(tri.max(), lmax);
-    lmin = glm::min(tri.min(), lmin);
-  }
-
-  std::cout << glm::to_string(lmax) << std::endl;
-  std::cout << glm::to_string(lmin) << std::endl;
-*/
   return;
 }
 

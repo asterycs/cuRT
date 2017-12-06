@@ -18,7 +18,8 @@ void GLModel::load(const Model& model)
 
   fileName = model.getFileName();
 
-  std::vector<MeshDescriptor> meshDescriptors = std::vector<MeshDescriptor>(model.getMeshDescriptors().begin(), model.getMeshDescriptors().end());
+  auto meshDescriptors = std::vector<MeshDescriptor>(model.getMeshDescriptors().begin(), model.getMeshDescriptors().end());
+  bvhBoxDescriptors = std::vector<MeshDescriptor>(model.getBVHBoxDescriptors().begin(), model.getBVHBoxDescriptors().end());
 
   const std::vector<Triangle>& triangles = model.getTriangles();
   
@@ -30,4 +31,9 @@ void GLModel::load(const Model& model)
 const std::string& GLModel::getFileName() const
 {
   return fileName;
+}
+
+const std::vector<MeshDescriptor>& GLModel::getBVHBoxDescriptors() const
+{
+  return this->bvhBoxDescriptors;
 }
