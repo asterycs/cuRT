@@ -42,7 +42,9 @@ void App::resizeCallbackEvent(int width, int height)
 
   glcontext.resize(newSize);
   glcanvas.resize(newSize);
+#ifdef ENABLE_CUDA
   cudaRenderer.resize(newSize);
+#endif
 }
 
 void App::MainLoop()
@@ -247,6 +249,9 @@ void App::loadModel(const std::string& modelFile)
 {
   Model scene = loader.loadOBJ(modelFile);
   glmodel.load(scene);
+#ifdef ENABLE_CUDA
+  cudaRenderer.loadBVH(scene);
+#endif
 }
 
 void App::loadSceneFile(const std::string& filename)

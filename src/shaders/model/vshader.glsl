@@ -1,7 +1,7 @@
 #version 330 core
 
 uniform mat4 posToCamera;
-uniform mat4 normalToCamera;
+uniform mat3 normalToCamera;
 uniform mat4 biasedDepthToLight;
 
 layout(location = 0) in vec3 vertexPosition;

@@ -348,7 +348,7 @@ void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLi
 
   modelShader.bind();
   modelShader.updateUniformMat4f("posToCamera", camera.getMVP(size));
-  //modelShader.updateUniformMat4f("normalToCamera", glm::transpose(glm::inverse(camera.getMVP(size))));
+  //modelShader.updateUniformMat3f("normalToCamera", glm::mat3(glm::transpose(glm::inverse(camera.getMVP(size)))));
   modelShader.updateUniformMat4f("biasedDepthToLight", light.getDepthBiasMVP());
   modelShader.updateUniform3fv("lightPos", light.getLight().getPosition());
   modelShader.updateUniform3fv("lightNormal", light.getLight().getNormal());

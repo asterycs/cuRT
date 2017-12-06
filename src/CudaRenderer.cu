@@ -158,7 +158,18 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const RaycastResult& 
   return brightness;
 }
 
-__device__ glm::fvec3 rayTrace(const Ray& ray, const Triangle* triangles, const int nTriangles, const Camera camera, const MeshDescriptor* meshDescriptors, const int nMeshes, const Light light, curandState_t& curandState1, curandState_t& curandState2, const int recursions)
+__device__ glm::fvec3 rayTrace(\
+    const Node* bvh, \
+    const Ray& ray, \
+    const Triangle* triangles, \
+    const int nTriangles, \
+    const Camera camera, \
+    const MeshDescriptor* meshDescriptors, \
+    const int nMeshes, \
+    const Light light, \
+    curandState_t& curandState1, \
+    curandState_t& curandState2, \
+    const int recursions)
 {
 
   int it = recursions;
@@ -227,7 +238,18 @@ __device__ void writeToCanvas(const unsigned int x, const unsigned int y, const 
   return;
 }
 
-__global__ void cudaRender(const cudaSurfaceObject_t canvas, const glm::ivec2 canvasSize, const Triangle* triangles, const int nTriangles, const Camera camera, const MeshDescriptor* meshDescriptors, const int nMeshes, const Light light, curandState_t* curandStateDevXPtr, curandState_t* curandStateDevYPtr)
+__global__ void cudaRender(\
+    const cudaSurfaceObject_t canvas, \
+    const glm::ivec2 canvasSize, \
+    const Triangle* triangles, \
+    const int nTriangles, \
+    const Camera camera, \
+    const MeshDescriptor* meshDescriptors, \
+    const int nMeshes, \
+    const Light light, \
+    curandState_t* curandStateDevXPtr, \
+    curandState_t* curandStateDevYPtr, \
+    const Node* bvh)
 {
   int x = threadIdx.x + blockIdx.x * blockDim.x;
   int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -241,7 +263,18 @@ __global__ void cudaRender(const cudaSurfaceObject_t canvas, const glm::ivec2 ca
 
   Ray ray = camera.generateRay(nic, ar);
 
-  glm::fvec3 color = rayTrace(ray, triangles, nTriangles, camera, meshDescriptors, nMeshes, light, curandStateDevXPtr[x + canvasSize.x * y], curandStateDevYPtr[x + canvasSize.x * y], RECURSIONS);
+  glm::fvec3 color = rayTrace(\
+      bvh,
+      ray, \
+      triangles, \
+      nTriangles, \
+      camera, \
+      meshDescriptors, \
+      nMeshes, \
+      light, \
+      curandStateDevXPtr[x + canvasSize.x * y], \
+      curandStateDevYPtr[x + canvasSize.x * y], \
+      RECURSIONS);
 
   writeToCanvas(x, y, canvas, canvasSize, color);
 
@@ -287,7 +320,6 @@ CudaRenderer::~CudaRenderer()
 
 }
 
-
 void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light)
 {
   if (model.getNTriangles() == 0)
@@ -306,7 +338,19 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
   dim3 block(BLOCKWIDTH, BLOCKWIDTH);
   dim3 grid( (canvasSize.x+ block.x - 1) / block.x, (canvasSize.y + block.y - 1) / block.y);
 
-  cudaRender<<<grid, block>>>(surfaceObj, canvasSize, devTriangles, model.getNTriangles(), camera, model.cudaGetMappedMeshDescriptorPtr(), meshes, light.getLight(), curandStateDevXRaw, curandStateDevYRaw);
+  // TODO: Reduce the number of parameters...
+  cudaRender<<<grid, block>>>(\
+      surfaceObj, \
+      canvasSize, \
+      devTriangles, \
+      model.getNTriangles(), \
+      camera, \
+      model.cudaGetMappedMeshDescriptorPtr(), \
+      meshes, \
+      light.getLight(), \
+      curandStateDevXRaw, \
+      curandStateDevYRaw, \
+      model.getDeviceBVH());
   CUDA_CHECK(cudaDeviceSynchronize());
 
 

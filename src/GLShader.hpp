@@ -28,6 +28,7 @@ public:
   
   void updateUniform3fv(const std::string& identifier, const glm::fvec3& value);
   void updateUniformMat4f(const std::string& identifier, const glm::fmat4& mat);
+  void updateUniformMat3f(const std::string& identifier, const glm::fmat3& mat);
   void updateUniformMat2f(const std::string& identifier, const glm::fmat2& mat);
   void updateUniform1i(const std::string& identifier, const int value);
   

@@ -13,6 +13,10 @@ public:
   GLModel& operator=(const GLModel& that) = delete;
   ~GLModel();
 
+#ifdef ENABLE_CUDA
+  const Node* getDeviceBVH() const;
+#endif
+
   const std::vector<MeshDescriptor>& getBVHBoxDescriptors() const;
   void load(const Model& model);
   const std::string& getFileName() const;
@@ -20,6 +24,10 @@ public:
 private:
   std::vector<MeshDescriptor> bvhBoxDescriptors;
   std::string fileName;
+
+#ifdef ENABLE_CUDA
+  Node* deviceBVH;
+#endif
 };
 
 #endif

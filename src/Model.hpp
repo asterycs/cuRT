@@ -17,6 +17,7 @@ public:
   const std::vector<Triangle>& getTriangles() const;
   const std::vector<MeshDescriptor>& getMeshDescriptors() const;
   const std::vector<MeshDescriptor>& getBVHBoxDescriptors() const;
+  const std::vector<Node>& getBVH() const;
   const std::string& getFileName() const;
   const AABB& getBbox() const;
   void createBVH();

@@ -1,5 +1,9 @@
 #include "GLModel.hpp"
 
+#ifdef ENABLE_CUDA
+  #include <cuda_runtime.h>
+#endif
+
 #include <vector>
 
 GLModel::GLModel()
@@ -9,7 +13,9 @@ GLModel::GLModel()
 
 GLModel::~GLModel()
 {
-
+#ifdef ENABLE_CUDA
+  cudaFree(deviceBVH);
+#endif
 }
 
 void GLModel::load(const Model& model)
@@ -19,7 +25,12 @@ void GLModel::load(const Model& model)
   fileName = model.getFileName();
 
   auto meshDescriptors = std::vector<MeshDescriptor>(model.getMeshDescriptors().begin(), model.getMeshDescriptors().end());
-  bvhBoxDescriptors = std::vector<MeshDescriptor>(model.getBVHBoxDescriptors().begin(), model.getBVHBoxDescriptors().end());
+  bvhBoxDescriptors = model.getBVHBoxDescriptors();
+
+#ifdef ENABLE_CUDA
+  CUDA_CHECK(cudaMalloc((void**) &deviceBVH, model.getBVH().size() * sizeof(Node)));
+  CUDA_CHECK(cudaMemcpy(deviceBVH, model.getBVH().data(), model.getBVH().size() * sizeof(Node), cudaMemcpyHostToDevice));
+#endif
 
   const std::vector<Triangle>& triangles = model.getTriangles();
   
@@ -33,7 +44,9 @@ const std::string& GLModel::getFileName() const
   return fileName;
 }
 
-const std::vector<MeshDescriptor>& GLModel::getBVHBoxDescriptors() const
+#ifdef ENABLE_CUDA
+const Node* GLModel::getDeviceBVH() const
 {
-  return this->bvhBoxDescriptors;
+  return deviceBVH;
 }
+#endif

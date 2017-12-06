@@ -121,6 +121,15 @@ void GLShader::updateUniformMat4f(const std::string& identifier, const glm::fmat
   GL_CHECK(glUniformMatrix4fv(id, 1, GL_FALSE, glm::value_ptr(mat)));
 }
 
+void GLShader::updateUniformMat3f(const std::string& identifier, const glm::fmat3& mat)
+{
+  GLint id;
+  GL_CHECK(id = glGetUniformLocation(program, identifier.c_str()));
+  if (id == -1)
+    std::cerr << "Identifier \"" << identifier << "\" not found" << std::endl;
+  GL_CHECK(glUniformMatrix3fv(id, 1, GL_FALSE, glm::value_ptr(mat)));
+}
+
 void GLShader::updateUniformMat2f(const std::string& identifier, const glm::fmat2& mat)
 {
   GLint id;

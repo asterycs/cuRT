@@ -368,3 +368,8 @@ void Model::createBVH()
   return;
 }
 
+const std::vector<Node>& Model::getBVH() const
+{
+  return bvh;
+}
+
