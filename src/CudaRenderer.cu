@@ -15,7 +15,25 @@
 #define EPSILON 0.0001f
 #define BIGT 99999.f
 #define SHADOWSAMPLING 64
-#define RECURSIONS 2
+#define REFLECTIONS 1
+
+__device__ bool bboxIntersect(const AABB& box, const Ray& ray, float& t)
+{
+  float tmin = -BIGT, tmax = BIGT;
+
+  for (unsigned int d = 0; d < 3; ++d)
+  {
+    float tdmin = (box.min[d] - ray.origin[d]) / ray.direction[d];
+    float tdmax = (box.max[d] - ray.origin[d]) / ray.direction[d];
+
+    tmin = max(tmin, min(tdmin, tdmax));
+    tmax = min(tmax, max(tdmin, tdmax));
+  }
+
+  t = min(tmin, tmax);
+
+  return tmax >= tmin && !(tmax < 0.f && tmin < 0.f);
+}
 
 __device__ void debug_vec3f(const glm::fvec3& v)
 {
@@ -85,37 +103,84 @@ __device__ const Material* getMaterial(const int triIdx, const MeshDescriptor* m
 }
 
 // This is where we traverse the acceleration structure later...
-__device__ RaycastResult rayCast(const Ray& ray, const Triangle* triangles, const unsigned int nTriangles)
+__device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles, const unsigned int nTriangles)
 {
   float tMin = BIGT;
   int minTriIdx = -1;
+  RaycastResult result;
 
-  for (int i = 0; i < nTriangles; ++i)
+  float hitt = BIGT;
+  bool hit = bboxIntersect(bvh[0].bbox, ray, hitt);
+
+  if (!hit)
+    return result;
+
+  int ptr = 1;
+  int stack[16] { 0 };
+  stack[0] = 0;
+
+  while (ptr > 0)
   {
-    float t = 0;
+    --ptr;
+    Node currentNode = bvh[stack[ptr]];
 
-    if (rayTriangleIntersection(ray, triangles[i], t))
+    if (currentNode.rightIndex == -1)
     {
-      if(t < tMin)
+      float t = 0;
+
+      for (int i = currentNode.startTri; i < currentNode.startTri + currentNode.nTri; ++i)
       {
-        tMin = t;
-        minTriIdx = i;
+        if (rayTriangleIntersection(ray, triangles[i], t))
+        {
+          if(t < tMin)
+          {
+            tMin = t;
+            minTriIdx = i;
+          }
+        }
+      }
+
+    }else
+    {
+      Node leftChild = bvh[stack[ptr] + 1];
+      Node rightChild = bvh[currentNode.rightIndex];
+
+      float leftt, rightt;
+      bool leftHit = bboxIntersect(leftChild.bbox, ray, leftt);
+      bool rightHit = bboxIntersect(rightChild.bbox, ray, rightt);
+
+      if (leftHit)
+      {
+        stack[ptr] = stack[ptr] + 1;
+        ++ptr;
+      }
+
+      if (rightHit)
+      {
+        stack[ptr] = currentNode.rightIndex;
+        ++ptr;
       }
     }
+
   }
 
   if (minTriIdx == -1)
-    return RaycastResult();
+    return result;
 
   glm::fvec3 hitPoint = ray.origin + glm::normalize(ray.direction) * tMin;
   glm::fvec2 uv(0.f);
 
-  return RaycastResult(minTriIdx, tMin, uv, hitPoint);
+  result.point = hitPoint;
+  result.t = tMin;
+  result.triangleIdx = minTriIdx;
+  result.uv = uv;
+
+  return result;
 }
 
 
 template<typename curandState>
-__device__ glm::fvec3 areaLightShading(const Light& light, const RaycastResult& result, const Triangle* triangles, const unsigned int nTriangles, curandState& curandState1, curandState& curandState2, const unsigned int supersampling)
+__device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, const RaycastResult& result, const Triangle* triangles, const unsigned int nTriangles, curandState& curandState1, curandState& curandState2, const unsigned int supersampling)
 {
   glm::fvec3 brightness(0.f);
 
@@ -140,7 +205,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const RaycastResult& 
 
     Ray shadowRay(shadowRayOrigin, glm::normalize(shadowRayDir));
 
-    RaycastResult shadowResult = rayCast(shadowRay, triangles, nTriangles);
+    RaycastResult shadowResult = rayCast(shadowRay, bvh, triangles, nTriangles);
 
     if ((shadowResult && shadowResult.t >= maxT - EPSILON) || !shadowResult)
     {
@@ -169,14 +234,14 @@ __device__ glm::fvec3 rayTrace(\
     const Light light, \
     curandState_t& curandState1, \
     curandState_t& curandState2, \
-    const int recursions)
+    const int reflections)
 {
 
-  int it = recursions;
+  int it = reflections;
   glm::fvec3 color(0.f);
 
   // Primary
-  RaycastResult result = rayCast(ray, triangles, nTriangles);
+  RaycastResult result = rayCast(ray, bvh, triangles, nTriangles);
 
   if (!result)
     return color;
@@ -185,7 +250,7 @@ __device__ glm::fvec3 rayTrace(\
   const Material* material = getMaterial(result.triangleIdx, meshDescriptors, nMeshes);
 
   color = material->colorAmbient * 0.25f; // Ambient lightning
-  color += material->colorDiffuse / glm::pi<float>() * areaLightShading(light, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
+  color += material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
 
   glm::fvec3 filterSpecular = material->colorSpecular;
   glm::fvec3 reflRayOrigin;
@@ -197,7 +262,7 @@ __device__ glm::fvec3 rayTrace(\
     reflRayOrigin = result.point + hitTriangle->normal() * EPSILON;
     reflRayDir = mirrorDirection(hitTriangle->normal(), ray.direction);
     Ray reflRay = Ray(reflRayOrigin, reflRayDir);
-    result = rayCast(reflRay, triangles, nTriangles);
+    result = rayCast(reflRay, bvh, triangles, nTriangles);
 
     if (!result)
       break;
@@ -206,7 +271,7 @@ __device__ glm::fvec3 rayTrace(\
     material = getMaterial(result.triangleIdx, meshDescriptors, nMeshes);
 
     color += filterSpecular * material->colorAmbient * 0.25f; // Ambient lightning
-    color += filterSpecular * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
+    color += filterSpecular * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
 
     filterSpecular = material->colorSpecular;
 
@@ -274,7 +339,7 @@ __global__ void cudaRender(\
       light, \
       curandStateDevXPtr[x + canvasSize.x * y], \
       curandStateDevYPtr[x + canvasSize.x * y], \
-      RECURSIONS);
+      REFLECTIONS);
 
   writeToCanvas(x, y, canvas, canvasSize, color);
 
@@ -338,7 +403,6 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
   dim3 block(BLOCKWIDTH, BLOCKWIDTH);
   dim3 grid( (canvasSize.x+ block.x - 1) / block.x, (canvasSize.y + block.y - 1) / block.y);
 
-  // TODO: Reduce the number of parameters...
   cudaRender<<<grid, block>>>(\
       surfaceObj, \
       canvasSize, \
@@ -351,6 +415,7 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
       curandStateDevXRaw, \
       curandStateDevYRaw, \
       model.getDeviceBVH());
+
   CUDA_CHECK(cudaDeviceSynchronize());
 
 

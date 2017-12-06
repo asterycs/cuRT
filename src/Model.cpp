@@ -362,7 +362,6 @@ void Model::createBVH()
 
   }
 
-
   this->bvh = finishedNodes;
 
   return;
