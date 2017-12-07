@@ -288,7 +288,7 @@ void Model::createBVH()
 
   // Now for the actual tree.
   // This is a simple top down approach that places the nodes in an array.
-  // This makes the transfer to GPU simpler and more effective.
+  // This makes the transfer to GPU simple.
   std::queue<Node> queue;
   std::queue<int> parentIndices;
 

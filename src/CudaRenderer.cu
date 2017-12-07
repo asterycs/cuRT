@@ -102,7 +102,6 @@ __device__ const Material* getMaterial(const int triIdx, const MeshDescriptor* m
   return nullptr;
 }
 
-// This is where we traverse the acceleration structure later...
 __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles, const unsigned int nTriangles)
 {
   float tMin = BIGT;
@@ -151,7 +150,7 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
 
       if (leftHit)
       {
-        stack[ptr] = stack[ptr] + 1;
+        stack[ptr] = stack[ptr + 1] + 1;
         ++ptr;
       }
 
