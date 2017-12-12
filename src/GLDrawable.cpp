@@ -11,7 +11,8 @@
 GLDrawable::GLDrawable() :
 #ifdef ENABLE_CUDA
   cudaGraphicsTriangleResource(),
-  cudaMaterialsPtr(),
+  cudaMaterialPtr(),
+  cudaTriangleMaterialIdsPtr(),
 #endif
   vaoID(0),
   vboID(0),
@@ -21,7 +22,7 @@ GLDrawable::GLDrawable() :
 
 }
 
-void GLDrawable::finalizeLoad(const std::vector<Triangle>& triangles, const std::vector<MeshDescriptor>& meshDescriptors, const std::vector<Material>& materials)
+void GLDrawable::finalizeLoad(const std::vector<Triangle>& triangles, const std::vector<MeshDescriptor>& meshDescriptors, const std::vector<Material>& materials,  const std::vector<unsigned int>& triangleMaterialIds)
 {
   if (triangles.size() == 0 || meshDescriptors.size() == 0)
   {
@@ -33,8 +34,11 @@ void GLDrawable::finalizeLoad(const std::vector<Triangle>& triangles, const std:
   this->meshDescriptors = meshDescriptors;
   this->materials = materials;
 
-  CUDA_CHECK(cudaMalloc((void**) &cudaMaterialsPtr, materials.size() * sizeof(Material)));
-  CUDA_CHECK(cudaMemcpy(cudaMaterialsPtr, materials.data(), materials.size() * sizeof(Material), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc((void**) &cudaMaterialPtr, materials.size() * sizeof(Material)));
+  CUDA_CHECK(cudaMemcpy(cudaMaterialPtr, materials.data(), materials.size() * sizeof(Material), cudaMemcpyHostToDevice));
+
+  CUDA_CHECK(cudaMalloc((void**) &cudaTriangleMaterialIdsPtr, triangleMaterialIds.size() * sizeof(unsigned int)));
+  CUDA_CHECK(cudaMemcpy(cudaTriangleMaterialIdsPtr, triangleMaterialIds.data(), triangleMaterialIds.size() * sizeof(unsigned int), cudaMemcpyHostToDevice));
 
   GL_CHECK(glGenVertexArrays(1, &vaoID));
   GL_CHECK(glBindVertexArray(vaoID));
@@ -93,7 +97,7 @@ GLDrawable::~GLDrawable()
 	clear();
 }
 
-Triangle* GLDrawable::cudaGetMappedTrianglePtr()
+Triangle* GLDrawable::getMappedCudaTrianglePtr()
 {
   Triangle* cudaTrianglePtr(nullptr);
   size_t numBytes(0);
@@ -104,7 +108,7 @@ Triangle* GLDrawable::cudaGetMappedTrianglePtr()
   return cudaTrianglePtr;
 }
 
-void GLDrawable::cudaUnmapTrianglePtr()
+void GLDrawable::unmapCudaTrianglePtr()
 {
   CUDA_CHECK(cudaGraphicsUnmapResources(1, &cudaGraphicsTriangleResource));
 }
@@ -114,7 +118,8 @@ void GLDrawable::clear()
   if (nTriangles > 0)
   {
     CUDA_CHECK(cudaGraphicsUnregisterResource(cudaGraphicsTriangleResource));
-    CUDA_CHECK(cudaFree(cudaMaterialsPtr));
+    CUDA_CHECK(cudaFree(cudaMaterialPtr));
+    CUDA_CHECK(cudaFree(cudaTriangleMaterialIdsPtr));
   }
 
   GL_CHECK(glBindVertexArray(0));
@@ -152,14 +157,14 @@ const std::vector<MeshDescriptor>& GLDrawable::getMeshDescriptors() const
 }
 
 #ifdef ENABLE_CUDA
-Material* GLDrawable::cudaGetMappedMaterialsPtr()
+Material* GLDrawable::getCudaMaterialsPtr()
 {
-  return cudaMaterialsPtr;
+  return cudaMaterialPtr;
 }
 
-void GLDrawable::cudaUnmapMaterialsPtr()
+unsigned int* GLDrawable::getCudaTriangleMaterialIdsPtr()
 {
-
+  return cudaTriangleMaterialIdsPtr;
 }
 #endif
 

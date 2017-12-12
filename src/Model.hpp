@@ -16,6 +16,7 @@ public:
   Model(const aiScene *scene, const std::string& fileName);
   const std::vector<Triangle>& getTriangles() const;
   const std::vector<Material>& getMaterials() const;
+  const std::vector<unsigned int>& getTriangleMaterialIds() const;
   const std::vector<MeshDescriptor>& getMeshDescriptors() const;
   const std::vector<MeshDescriptor>& getBVHBoxDescriptors() const;
   const std::vector<Node>& getBVH() const;

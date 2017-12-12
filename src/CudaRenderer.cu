@@ -89,19 +89,6 @@ __device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle
 }
 
 
-__device__ const Material* getMaterial(const int triIdx, const MeshDescriptor* meshes, const int nMeshes)
-{
-  for (int i = 0; i < nMeshes; ++i)
-  {
-    const MeshDescriptor& mesh = meshes[i];
-
-    if (mesh.start <= triIdx && triIdx < mesh.start + mesh.nTriangles)
-      return &mesh.material;
-  }
-
-  return nullptr;
-}
-
 __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles, const unsigned int nTriangles)
 {
   float tMin = BIGT;
@@ -228,8 +215,8 @@ __device__ glm::fvec3 rayTrace(\
     const Triangle* triangles, \
     const int nTriangles, \
     const Camera camera, \
-    const MeshDescriptor* meshDescriptors, \
-    const int nMeshes, \
+    const Material* materials, \
+    const unsigned int* triangleMaterialIds, \
     const Light light, \
     curandState_t& curandState1, \
     curandState_t& curandState2, \
@@ -246,7 +233,7 @@ __device__ glm::fvec3 rayTrace(\
     return color;
 
   const Triangle* hitTriangle = &triangles[result.triangleIdx];
-  const Material* material = getMaterial(result.triangleIdx, meshDescriptors, nMeshes);
+  const Material* material = &materials[triangleMaterialIds[result.triangleIdx]];
 
   color = material->colorAmbient * 0.25f; // Ambient lightning
   color += material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
@@ -267,7 +254,7 @@ __device__ glm::fvec3 rayTrace(\
       break;
 
     hitTriangle = &triangles[result.triangleIdx];
-    material = getMaterial(result.triangleIdx, meshDescriptors, nMeshes);
+    material = &materials[triangleMaterialIds[result.triangleIdx]];
 
     color += filterSpecular * material->colorAmbient * 0.25f; // Ambient lightning
     color += filterSpecular * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
@@ -308,8 +295,8 @@ __global__ void cudaRender(\
     const Triangle* triangles, \
     const int nTriangles, \
     const Camera camera, \
-    const MeshDescriptor* meshDescriptors, \
-    const int nMeshes, \
+    const Material* materials, \
+    const unsigned int* triangleMaterialIds, \
     const Light light, \
     curandState_t* curandStateDevXPtr, \
     curandState_t* curandStateDevYPtr, \
@@ -333,8 +320,8 @@ __global__ void cudaRender(\
       triangles, \
       nTriangles, \
       camera, \
-      meshDescriptors, \
-      nMeshes, \
+      materials, \
+      triangleMaterialIds, \
       light, \
       curandStateDevXPtr[x + canvasSize.x * y], \
       curandStateDevYPtr[x + canvasSize.x * y], \
@@ -395,7 +382,7 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
   curandState_t* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
 
   auto surfaceObj = canvas.getCudaMappedSurfaceObject();
-  Triangle* devTriangles = model.cudaGetMappedTrianglePtr();
+  Triangle* devTriangles = model.getMappedCudaTrianglePtr();
 
   int meshes = model.getNMeshes();
 
@@ -408,8 +395,8 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
       devTriangles, \
       model.getNTriangles(), \
       camera, \
-      /* materials, */ \
-      /* triangleMaterialIds, */ \
+      model.getCudaMaterialsPtr(), \
+      model.getCudaTriangleMaterialIdsPtr(), \
       light.getLight(), \
       curandStateDevXRaw, \
       curandStateDevYRaw, \
@@ -418,7 +405,7 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
   CUDA_CHECK(cudaDeviceSynchronize());
 
 
-  model.cudaUnmapTrianglePtr();
+  model.unmapCudaTrianglePtr();
   canvas.cudaUnmap();
 }
 

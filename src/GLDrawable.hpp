@@ -30,16 +30,15 @@ public:
   const std::vector<MeshDescriptor>& getMeshDescriptors() const; // Used when drawing OpenGL
   const std::vector<Material>& getMaterials() const;
 
-  Triangle* cudaGetMappedTrianglePtr();
-  void cudaUnmapTrianglePtr();
-
-  Material* cudaGetMappedMaterialsPtr();
-  void cudaUnmapMaterialsPtr();
+  Triangle* getMappedCudaTrianglePtr();
+  void unmapCudaTrianglePtr();
+  Material* getCudaMaterialsPtr();
+  unsigned int* getCudaTriangleMaterialIdsPtr();
 
 protected:
   GLDrawable();
   void clear();
-  void finalizeLoad(const std::vector<Triangle>& triangles, const std::vector<MeshDescriptor>& meshDescriptors, const std::vector<Material>& materials);
+  void finalizeLoad(const std::vector<Triangle>& triangles, const std::vector<MeshDescriptor>& meshDescriptors, const std::vector<Material>& materials, const std::vector<unsigned int>& triangleMaterialIds);
 
 private:
 
@@ -47,6 +46,7 @@ private:
   void registerCuda();
   cudaGraphicsResource_t cudaGraphicsTriangleResource;
   Material* cudaMaterialPtr;
+  unsigned int* cudaTriangleMaterialIdsPtr;
 #endif
 
   GLuint vaoID;

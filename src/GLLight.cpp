@@ -19,7 +19,6 @@ void GLLight::load(const Light& light)
 {
   clear();
 
-
   this->light = light;
 
   Material material;
@@ -34,12 +33,13 @@ void GLLight::load(const Light& light)
   std::vector<Material> materials { material };
   std::vector<MeshDescriptor> meshDescriptors;
   std::vector<unsigned int> vertexIds { 0, 1, 2, 3, 4, 5 };
+  std::vector<unsigned int> triangleMaterialIds { 0, 0 };
 
   meshDescriptors.push_back(MeshDescriptor(vertexIds, 0));
 
   const glm::vec2& lightSize = light.getSize();
 
-  const std::vector<glm::vec4> contour = {
+  const std::vector<glm::vec4> contour {
     glm::vec4(-lightSize.x, lightSize.y, 0.0, 1.0),
     glm::vec4(lightSize.x, -lightSize.y, 0.0, 1.0),
     glm::vec4(-lightSize.x, -lightSize.y, 0.0, 1.0),
@@ -72,7 +72,7 @@ void GLLight::load(const Light& light)
   glm::mat4 depthProjectionMatrix = glm::perspective(glm::half_pi<float>(), (float) light.getSize().x / (float) light.getSize().y, 0.001f, 10.f);
   depthMVP = depthProjectionMatrix * glm::inverse(light.getModelMat());
 
-  finalizeLoad(triangles, meshDescriptors, materials);
+  finalizeLoad(triangles, meshDescriptors, materials, triangleMaterialIds);
 }
 
 const Light& GLLight::getLight() const

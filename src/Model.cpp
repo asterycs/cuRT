@@ -140,6 +140,11 @@ const std::vector<MeshDescriptor>& Model::getBVHBoxDescriptors() const
   return bvhBoxDescriptors;
 }
 
+const std::vector<unsigned int>& Model::getTriangleMaterialIds() const
+{
+  return triangleMaterialIds;
+}
+
 const std::string& Model::getFileName() const
 {
   return fileName;
