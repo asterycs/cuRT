@@ -31,9 +31,11 @@ void GLLight::load(const Light& light)
     material.colorShininess = glm::vec3(1.0f, 1.0f, 1.0f);
   }
 
+  std::vector<Material> materials { material };
   std::vector<MeshDescriptor> meshDescriptors;
+  std::vector<unsigned int> vertexIds { 0, 1, 2, 3, 4, 5 };
 
-  meshDescriptors.push_back(MeshDescriptor(0, 2, material));
+  meshDescriptors.push_back(MeshDescriptor(vertexIds, 0));
 
   const glm::vec2& lightSize = light.getSize();
 
@@ -70,7 +72,7 @@ void GLLight::load(const Light& light)
   glm::mat4 depthProjectionMatrix = glm::perspective(glm::half_pi<float>(), (float) light.getSize().x / (float) light.getSize().y, 0.001f, 10.f);
   depthMVP = depthProjectionMatrix * glm::inverse(light.getModelMat());
 
-  finalizeLoad(triangles, meshDescriptors);
+  finalizeLoad(triangles, meshDescriptors, materials);
 }
 
 const Light& GLLight::getLight() const

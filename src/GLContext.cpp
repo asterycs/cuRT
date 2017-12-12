@@ -324,7 +324,7 @@ void GLContext::updateShadowMap(const GLDrawable& model, const GLLight& light)
 
   for (auto& meshDescriptor : meshDescriptors)
   {
-    GL_CHECK(glDrawArrays(GL_TRIANGLES, meshDescriptor.start * 3, meshDescriptor.nTriangles * 3));
+    GL_CHECK(glDrawElements(GL_TRIANGLES, meshDescriptor.vertexIds.size(), GL_UNSIGNED_INT, meshDescriptor.vertexIds.data()));
   }
 
   depthShader.unbind();
@@ -344,6 +344,7 @@ void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLi
 
   const auto& vaoID = model.getVaoID();
   const auto& meshDescriptors = model.getMeshDescriptors(); // TODO: Switch between bvh visualization and normal colors
+  const auto& materials = model.getMaterials();
   //const auto& meshDescriptors = model.getBVHBoxDescriptors();
 
   modelShader.bind();
@@ -360,13 +361,13 @@ void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLi
 
   for (auto& meshDescriptor : meshDescriptors)
   {
-    auto& material = meshDescriptor.material;
+    auto& material = materials[meshDescriptor.materialIdx];
     
     modelShader.updateUniform3fv("material.colorAmbient", material.colorAmbient);
     modelShader.updateUniform3fv("material.colorDiffuse", material.colorDiffuse);
     //modelShader.updateUniform3fv("material.colorSpecular", material.colorSpecular);
 
-    GL_CHECK(glDrawArrays(GL_TRIANGLES, meshDescriptor.start * 3, meshDescriptor.nTriangles * 3));
+    GL_CHECK(glDrawElements(GL_TRIANGLES, meshDescriptor.vertexIds.size(), GL_UNSIGNED_INT, meshDescriptor.vertexIds.data()));
   }
 
   GL_CHECK(glBindVertexArray(0));

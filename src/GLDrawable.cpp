@@ -11,7 +11,7 @@
 GLDrawable::GLDrawable() :
 #ifdef ENABLE_CUDA
   cudaGraphicsTriangleResource(),
-  cudaMeshDescriptorPtr(),
+  cudaMaterialsPtr(),
 #endif
   vaoID(0),
   vboID(0),
@@ -21,7 +21,7 @@ GLDrawable::GLDrawable() :
 
 }
 
-void GLDrawable::finalizeLoad(const std::vector<Triangle>& triangles, const std::vector<MeshDescriptor>& meshDescriptors)
+void GLDrawable::finalizeLoad(const std::vector<Triangle>& triangles, const std::vector<MeshDescriptor>& meshDescriptors, const std::vector<Material>& materials)
 {
   if (triangles.size() == 0 || meshDescriptors.size() == 0)
   {
@@ -31,9 +31,10 @@ void GLDrawable::finalizeLoad(const std::vector<Triangle>& triangles, const std:
 
   nTriangles = GLuint(triangles.size());
   this->meshDescriptors = meshDescriptors;
+  this->materials = materials;
 
-  CUDA_CHECK(cudaMalloc((void**) &cudaMeshDescriptorPtr, meshDescriptors.size() * sizeof(MeshDescriptor)));
-  CUDA_CHECK(cudaMemcpy(cudaMeshDescriptorPtr, meshDescriptors.data(), meshDescriptors.size() * sizeof(MeshDescriptor), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc((void**) &cudaMaterialsPtr, materials.size() * sizeof(Material)));
+  CUDA_CHECK(cudaMemcpy(cudaMaterialsPtr, materials.data(), materials.size() * sizeof(Material), cudaMemcpyHostToDevice));
 
   GL_CHECK(glGenVertexArrays(1, &vaoID));
   GL_CHECK(glBindVertexArray(vaoID));
@@ -113,7 +114,7 @@ void GLDrawable::clear()
   if (nTriangles > 0)
   {
     CUDA_CHECK(cudaGraphicsUnregisterResource(cudaGraphicsTriangleResource));
-    CUDA_CHECK(cudaFree(cudaMeshDescriptorPtr));
+    CUDA_CHECK(cudaFree(cudaMaterialsPtr));
   }
 
   GL_CHECK(glBindVertexArray(0));
@@ -150,13 +151,20 @@ const std::vector<MeshDescriptor>& GLDrawable::getMeshDescriptors() const
   return meshDescriptors;
 }
 
-MeshDescriptor* GLDrawable::cudaGetMappedMeshDescriptorPtr()
+#ifdef ENABLE_CUDA
+Material* GLDrawable::cudaGetMappedMaterialsPtr()
 {
-  return cudaMeshDescriptorPtr;
+  return cudaMaterialsPtr;
 }
 
-void GLDrawable::cudaUnmapMeshDescriptorPtr()
+void GLDrawable::cudaUnmapMaterialsPtr()
 {
 
+}
+#endif
+
+const std::vector<Material>& GLDrawable::getMaterials() const
+{
+  return materials;
 }
 

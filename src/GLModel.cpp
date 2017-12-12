@@ -26,6 +26,7 @@ void GLModel::load(const Model& model)
 
   auto meshDescriptors = std::vector<MeshDescriptor>(model.getMeshDescriptors().begin(), model.getMeshDescriptors().end());
   bvhBoxDescriptors = model.getBVHBoxDescriptors();
+  auto materials = model.getMaterials();
 
 #ifdef ENABLE_CUDA
   CUDA_CHECK(cudaMalloc((void**) &deviceBVH, model.getBVH().size() * sizeof(Node)));
@@ -36,7 +37,7 @@ void GLModel::load(const Model& model)
   
   std::cout << "Triangles: " << triangles.size() << std::endl;
   
-  finalizeLoad(triangles, meshDescriptors);
+  finalizeLoad(triangles, meshDescriptors, materials);
 }
 
 const std::string& GLModel::getFileName() const

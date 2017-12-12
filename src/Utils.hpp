@@ -10,6 +10,8 @@
 #include <string>
 #include <iostream>
 #include <memory>
+#include <vector>
+#include <algorithm>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/glm.hpp"
@@ -87,19 +89,15 @@ std::unique_ptr<Node> createBVH(const Model& model);
 
 struct MeshDescriptor
 {
-  unsigned int start;
-  unsigned int nTriangles;
-  Material material;
+  std::vector<unsigned int> vertexIds;
+  int materialIdx;
 
-  MeshDescriptor(unsigned int start,
-      unsigned int nTriangles,
-      Material material)
+  MeshDescriptor(const std::vector<unsigned int> vertexIds, const unsigned int materialId)
   :
-    start(start),
-    nTriangles(nTriangles),
-    material(material) {};
+    vertexIds(vertexIds),
+    materialIdx(materialId) {};
 
-  MeshDescriptor() : start(0), nTriangles(0), material() {};
+  MeshDescriptor() : vertexIds(), materialIdx(-1) {};
 };
 
 
@@ -139,5 +137,33 @@ struct RaycastResult {
 
   CUDA_FUNCTION operator bool() { return (triangleIdx != -1); }
 };
+
+template<typename T>
+void reorder(const std::vector<T>& unordered, const std::vector<size_t>& indices, std::vector<T>& ordered)
+{
+  std::vector<T> copy = unordered;
+  ordered.resize(indices.size());
+
+  for(std::size_t i = 0; i < indices.size(); i++)
+  {
+    ordered[i] = copy[indices[i]];
+  }
+}
+
+template <typename T>
+void sort(const std::vector<T>& unsorted, std::vector<T>& sorted, std::vector<size_t>& indices)
+{
+  indices.resize(unsorted.size());
+  std::iota(indices.begin(), indices.end(), 0);
+
+  std::sort(indices.begin(), indices.end(), [&unsorted](unsigned int l, unsigned int r)
+    {
+      return unsorted[l] < unsorted[r];
+    });
+
+
+  sorted.resize(unsorted.size());
+  reorder(unsorted, indices, sorted);
+}
 
 #endif

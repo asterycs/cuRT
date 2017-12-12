@@ -114,16 +114,16 @@ void App::handleControl(float dTime)
     camera.translate(glm::vec2(-1.f, 0.f), dTime);
   
   if (glcontext.isKeyPressed(GLFW_KEY_RIGHT))
-    camera.rotate(glm::vec2(1.f, 0.f));
+    camera.rotate(glm::vec2(2.f, 0.f));
 
   if (glcontext.isKeyPressed(GLFW_KEY_LEFT))
-    camera.rotate(glm::vec2(-1.f, 0.f));
+    camera.rotate(glm::vec2(-2.f, 0.f));
     
   if (glcontext.isKeyPressed(GLFW_KEY_UP))
-    camera.rotate(glm::vec2(0.f, -1.f));
+    camera.rotate(glm::vec2(0.f, -2.f));
     
   if (glcontext.isKeyPressed(GLFW_KEY_DOWN))
-    camera.rotate(glm::vec2(0.f, 1.f));
+    camera.rotate(glm::vec2(0.f, 2.f));
 }
 
 void App::mouseCallback(int button, int action, int /*modifiers*/)

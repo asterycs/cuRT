@@ -408,8 +408,8 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
       devTriangles, \
       model.getNTriangles(), \
       camera, \
-      model.cudaGetMappedMeshDescriptorPtr(), \
-      meshes, \
+      /* materials, */ \
+      /* triangleMaterialIds, */ \
       light.getLight(), \
       curandStateDevXRaw, \
       curandStateDevYRaw, \

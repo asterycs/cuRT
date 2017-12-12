@@ -15,6 +15,7 @@ public:
   Model();
   Model(const aiScene *scene, const std::string& fileName);
   const std::vector<Triangle>& getTriangles() const;
+  const std::vector<Material>& getMaterials() const;
   const std::vector<MeshDescriptor>& getMeshDescriptors() const;
   const std::vector<MeshDescriptor>& getBVHBoxDescriptors() const;
   const std::vector<Node>& getBVH() const;
@@ -27,7 +28,11 @@ private:
   void createBVHColors();
 
   std::vector<Triangle> triangles;
-  std::vector<MeshDescriptor> meshDescriptors;
+  std::vector<MeshDescriptor> meshDescriptors; // For GL drawing
+
+  std::vector<Material> materials;
+  std::vector<unsigned int> triangleMaterialIds;
+
   std::vector<MeshDescriptor> bvhBoxDescriptors; // For bvh visualization
   std::string fileName;
 
