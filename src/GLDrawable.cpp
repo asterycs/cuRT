@@ -37,6 +37,8 @@ void GLDrawable::finalizeLoad(const std::vector<Triangle>& triangles, const std:
   CUDA_CHECK(cudaMalloc((void**) &cudaMaterialPtr, materials.size() * sizeof(Material)));
   CUDA_CHECK(cudaMemcpy(cudaMaterialPtr, materials.data(), materials.size() * sizeof(Material), cudaMemcpyHostToDevice));
 
+  // gcc 5.4 does not seem to realize that triangleMaterialIds is used here
+  (void) triangleMaterialIds;
   CUDA_CHECK(cudaMalloc((void**) &cudaTriangleMaterialIdsPtr, triangleMaterialIds.size() * sizeof(unsigned int)));
   CUDA_CHECK(cudaMemcpy(cudaTriangleMaterialIdsPtr, triangleMaterialIds.data(), triangleMaterialIds.size() * sizeof(unsigned int), cudaMemcpyHostToDevice));
 

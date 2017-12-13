@@ -36,7 +36,7 @@ void main(){
   if (shadowCoordNorm.x >= 0 && shadowCoordNorm.x <= 1 && shadowCoordNorm.y >= 0 && shadowCoordNorm.y <= 1 && lightVisible)
   {
       if (texture(shadowMap, shadowCoordNorm.xy).r  <  shadowCoordNorm.z - epsilon){
-        visibility = 0.0;
+        visibility = 0.5;
       }
   }
 

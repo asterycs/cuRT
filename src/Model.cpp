@@ -22,7 +22,7 @@ Model::Model()
 Model::Model(const aiScene *scene, const std::string& fileName) : fileName(fileName)
 {
   initialize(scene);
-  //createBVH();
+  createBVH();
   //createBVHColors();
 }
 
@@ -291,9 +291,9 @@ void Model::createBVH()
 {
   auto mortonCodes = getMortonCodes();
   std::vector<unsigned int> sortedMortonCodes;
-  std::vector<std::size_t> origIndices; // Keep track of original position
+  std::vector<std::size_t> origTriIndices; // Keep track of original position
 
-  sort(mortonCodes, sortedMortonCodes, origIndices);
+  sort(mortonCodes, sortedMortonCodes, origTriIndices);
 
   // This is a simple top down approach that places the nodes in an array.
   // This makes the transfer to GPU simple.
@@ -375,6 +375,46 @@ void Model::createBVH()
   ////////////////////////////////////
   // Reorder MeshDescriptors.vertexIds
   ////////////////////////////////////
+
+  // All this hassle is just so one could use the same GPU vertices for OpenGL drawing
+  // while maintaining a good memory ordering
+  std::vector<unsigned int> origVertIds(origTriIndices.size() * 3);
+
+  for (std::size_t ti = 0; ti < origTriIndices.size(); ++ti)
+  {
+    for (std::size_t vi = 0; vi < 3; ++vi)
+    {
+      origVertIds[vi + ti * 3] = origTriIndices[ti] * 3 + vi;
+    }
+  }
+
+  for (auto& m : meshDescriptors)
+  {
+    for (auto& vi : m.vertexIds)
+    {
+      vi = origVertIds[vi];
+    }
+  }
+
+  std::vector<Triangle> newTriangles(triangles.size());
+
+  for (std::size_t ti = 0; ti < triangles.size(); ++ti)
+  {
+    newTriangles[ti] = triangles[origTriIndices[ti]];
+  }
+
+  triangles = newTriangles;
+
+  for (auto& m : meshDescriptors)
+  {
+    for (std::size_t vi = 0; vi < m.vertexIds.size(); ++vi)
+    {
+      std::cout << m.vertexIds[vi] << std::endl;
+    }
+    std::cout << std::endl;
+  }
+
+  throw std::runtime_error("asd");
 
   return;
 }
