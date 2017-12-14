@@ -367,7 +367,14 @@ void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLi
     modelShader.updateUniform3fv("material.colorDiffuse", material.colorDiffuse);
     //modelShader.updateUniform3fv("material.colorSpecular", material.colorSpecular);
 
-    GL_CHECK(glDrawElements(GL_TRIANGLES, meshDescriptor.vertexIds.size(), GL_UNSIGNED_INT, meshDescriptor.vertexIds.data()));
+    GLuint elementbuffer;
+    glGenBuffers(1, &elementbuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshDescriptor.vertexIds.size() * sizeof(unsigned int), meshDescriptor.vertexIds.data(), GL_STATIC_DRAW);
+
+    GL_CHECK(glDrawElements(GL_TRIANGLES, meshDescriptor.vertexIds.size() * 3, GL_UNSIGNED_INT, 0));
+
+    glDeleteBuffers(1, &elementbuffer);
   }
 
   GL_CHECK(glBindVertexArray(0));

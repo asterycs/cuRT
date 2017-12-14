@@ -138,32 +138,4 @@ struct RaycastResult {
   CUDA_FUNCTION operator bool() { return (triangleIdx != -1); }
 };
 
-template<typename T>
-void reorder(const std::vector<T>& unordered, const std::vector<size_t>& indices, std::vector<T>& ordered)
-{
-  std::vector<T> copy = unordered;
-  ordered.resize(indices.size());
-
-  for(std::size_t i = 0; i < indices.size(); i++)
-  {
-    ordered[i] = copy[indices[i]];
-  }
-}
-
-template <typename T>
-void sort(const std::vector<T>& unsorted, std::vector<T>& sorted, std::vector<size_t>& indices)
-{
-  indices.resize(unsorted.size());
-  std::iota(indices.begin(), indices.end(), 0);
-
-  std::sort(indices.begin(), indices.end(), [&unsorted](unsigned int l, unsigned int r)
-    {
-      return unsorted[l] < unsorted[r];
-    });
-
-
-  sorted.resize(unsorted.size());
-  reorder(unsorted, indices, sorted);
-}
-
 #endif
