@@ -106,8 +106,9 @@ struct Ray
 {
   glm::fvec3 origin;
   glm::fvec3 direction;
+  glm::fvec3 inverseDirection;
 
-  CUDA_FUNCTION Ray(const glm::fvec3& o, const glm::fvec3& d) : origin(o), direction(d) {};
+  CUDA_FUNCTION Ray(const glm::fvec3& o, const glm::fvec3& d) : origin(o), direction(d), inverseDirection(glm::fvec3(1.f) / d) {};
 };
 
 struct RaycastResult {

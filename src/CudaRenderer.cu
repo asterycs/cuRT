@@ -3,6 +3,8 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 
+#include <glm/gtx/component_wise.hpp>
+
 #include <cuda.h>
 #include <cuda_gl_interop.h>
 #include <curand.h>
@@ -15,24 +17,24 @@
 #define EPSILON 0.0001f
 #define BIGT 99999.f
 #define SHADOWSAMPLING 64
-#define REFLECTIONS 0
+#define REFLECTIONS 1
 
 __device__ bool bboxIntersect(const AABB& box, const Ray& ray, float& t)
 {
-  float tmin = -BIGT, tmax = BIGT;
+  glm::fvec3 tmin(-BIGT), tmax(BIGT);
 
-  for (unsigned int d = 0; d < 3; ++d)
-  {
-    float tdmin = (box.min[d] - ray.origin[d]) / ray.direction[d];
-    float tdmax = (box.max[d] - ray.origin[d]) / ray.direction[d];
+  glm::fvec3 tdmin = (box.min - ray.origin) * ray.inverseDirection;
+  glm::fvec3 tdmax = (box.max - ray.origin) * ray.inverseDirection;
 
-    tmin = max(tmin, min(tdmin, tdmax));
-    tmax = min(tmax, max(tdmin, tdmax));
-  }
+  tmin = glm::min(tdmin, tdmax);
+  tmax = glm::max(tdmin, tdmax);
 
-  t = min(tmin, tmax);
+  float tmind = glm::compMax(tmin);
+  float tmaxd = glm::compMin(tmax);
 
-  return tmax >= tmin && !(tmax < 0.f && tmin < 0.f);
+  t = min(tmind, tmaxd);
+
+  return tmaxd >= tmind && !(tmaxd < 0.f && tmind < 0.f);
 }
 
 __device__ void debug_vec3f(const glm::fvec3& v)
