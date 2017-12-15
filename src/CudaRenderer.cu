@@ -90,6 +90,41 @@ __device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle
     return false;
 }
 
+__global__ void dynamicIntersection(const Ray ray, const Triangle triangles[], const unsigned int nTris, float* minT, unsigned int* tri)
+{
+  const int tid = threadIdx.x;
+  const int i = threadIdx.x + blockIdx.x * blockDim.x;
+
+  if (i >= nTris)
+    return;
+
+  __shared__ float ts[8];
+  __shared__ unsigned int triIds[8];
+
+  float t;
+  rayTriangleIntersection(ray, triangles[i], t);
+
+  ts[tid] = t;
+  triIds[tid] = tid;
+  __syncthreads();
+
+
+  for (unsigned int s=1; s < blockDim.x; s *= 2) {
+    if (tid % (2*s) == 0) {
+      ts[tid] = fminf(ts[tid + s], ts[tid]);
+
+      if (ts[tid] == ts[tid + s])
+        triIds[tid] = triIds[tid + s];
+    }
+    __syncthreads();
+  }
+
+  if (tid == 0)
+  {
+    *minT = ts[0];
+    *tri = triIds[0];
+  }
+}
 
 __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles, const unsigned int nTriangles)
 {
@@ -119,7 +154,7 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
       float t = 0;
 
       for (int i = currentNode.startTri; i < currentNode.startTri + currentNode.nTri; ++i)
-      {
+       {
         if (rayTriangleIntersection(ray, triangles[i], t))
         {
           if(t < tMin)
@@ -128,7 +163,7 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
             minTriIdx = i;
           }
         }
-      }
+       }
 
     }else
     {
@@ -293,7 +328,9 @@ __device__ void writeToCanvas(const unsigned int x, const unsigned int y, const 
   return;
 }
 
-__global__ void cudaRender(\
+__global__ void
+__launch_bounds__(2 * BLOCKWIDTH * BLOCKWIDTH, 8)
+cudaRender(\
     const cudaSurfaceObject_t canvas, \
     const glm::ivec2 canvasSize, \
     const Triangle* triangles, \

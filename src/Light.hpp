@@ -68,9 +68,9 @@ CUDA_DEVICE void Light::sample(float& pdf, glm::vec3& point, curandState& random
   glm::fvec2 span = glm::fvec2(x * 2.f, y * 2.f);
   glm::fvec2 rf(span.x - 1.f, span.y - 1.f);
 
-  pdf = 1.0f / (size.x * size.y * 0.5f);
+  pdf = 1.0f / (size.x * size.y);
 
-  glm::fvec2 rndClip(rf.x * size.x * 0.5f, rf.y * size.y * 0.5f);
+  glm::fvec2 rndClip(rf.x * size.x, rf.y * size.y);
   glm::fvec4 p4 = modelMat * glm::vec4(rndClip, 0, 1);
   point = glm::fvec3(p4);
 }

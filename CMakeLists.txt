@@ -26,7 +26,7 @@ if (ENABLE_CUDA)
     CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS Auto)
     list(APPEND CMAKE_CUDA_FLAGS ${CUDA_ARCH_FLAGS})
     string(REPLACE ";" " " CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}") # Phew...
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo -maxrregcount 48")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
 endif(ENABLE_CUDA)
 
 find_package(glfw3 REQUIRED)

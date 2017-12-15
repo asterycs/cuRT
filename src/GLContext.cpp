@@ -35,7 +35,7 @@ GLContext::GLContext() :
   glfwWindowHint(GLFW_STENCIL_BITS, 8);
   glfwWindowHint(GLFW_DEPTH_BITS, 24);
   glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
-  glfwWindowHint(GLFW_SAMPLES, 8); // hehe
+  glfwWindowHint(GLFW_SAMPLES, 8);
 
   window = glfwCreateWindow(size.x, size.y, "GRAPHX", nullptr, nullptr);
   if (window == nullptr) {
