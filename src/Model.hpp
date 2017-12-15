@@ -9,6 +9,8 @@
 #include "Utils.hpp"
 #include "Triangle.hpp"
 
+#define MAX_TRIS_PER_LEAF 8
+
 class Model
 {
 public:
@@ -18,14 +20,16 @@ public:
   const std::vector<Material>& getMaterials() const;
   const std::vector<unsigned int>& getTriangleMaterialIds() const;
   const std::vector<MeshDescriptor>& getMeshDescriptors() const;
+
+  const std::vector<Material>& getBVHBoxMaterials() const;
   const std::vector<MeshDescriptor>& getBVHBoxDescriptors() const;
   const std::vector<Node>& getBVH() const;
   const std::string& getFileName() const;
   const AABB& getBbox() const;
   void createBVH();
-  std::vector<unsigned int> getMortonCodes() const;
 private:
   void initialize(const aiScene *scene);
+  void sortOnMorton();
   void createBVHColors();
 
   std::vector<Triangle> triangles;
@@ -35,6 +39,7 @@ private:
   std::vector<unsigned int> triangleMaterialIds;
 
   std::vector<MeshDescriptor> bvhBoxDescriptors; // For bvh visualization
+  std::vector<Material> bvhBoxMaterials;
   std::string fileName;
 
   AABB boundingBox;

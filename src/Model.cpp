@@ -2,7 +2,7 @@
 
 #include <numeric>
 #include <memory>
-#include <queue>
+#include <stack>
 #include <cmath>
 
 #include <glm/gtx/string_cast.hpp>
@@ -22,8 +22,9 @@ Model::Model()
 Model::Model(const aiScene *scene, const std::string& fileName) : fileName(fileName)
 {
   initialize(scene);
+  sortOnMorton();
   createBVH();
-  //createBVHColors();
+  createBVHColors();
 }
 
 void Model::initialize(const aiScene *scene)
@@ -76,8 +77,8 @@ void Model::initialize(const aiScene *scene)
         materials.push_back(material);
         meshDescriptors.push_back(meshDescr);
         triangleOffset += mesh->mNumFaces;
-      }else
-        continue;
+      }//else
+       // continue;
       
       for (std::size_t vi = 0; vi < mesh->mNumVertices; vi++)
       {
@@ -193,18 +194,16 @@ AABB computeBB(Node& node, const std::vector<Triangle>& triangles)
   return ret;
 }
 
-std::vector<unsigned int> Model::getMortonCodes() const
+std::vector<unsigned int> getMortonCodes(const std::vector<Triangle>& triangles, const AABB& boundingBox)
 {
   // Create Morton codes
-  const auto& triangles = getTriangles();
   const AABB& modelBbox = boundingBox;
   const glm::vec3 diff = modelBbox.max - modelBbox.min;
   const float maxDiff = std::max(std::max(diff.x, diff.y), diff.z);
 
   std::vector<unsigned int> mortonCodes(triangles.size());
 
-  std::vector<Triangle> normTris;
-  std::copy(triangles.begin(), triangles.end(), std::back_inserter(normTris));
+  std::vector<Triangle> normTris = triangles;
 
   glm::fvec3 toAdd = -modelBbox.min;
 
@@ -257,11 +256,12 @@ std::vector<unsigned int> Model::getMortonCodes() const
 
   return mortonCodes;
 }
-/*
+
 void Model::createBVHColors()
 {
-  // Assign unique colors to primitives in the same leaf. Useful when debugging.
+  // Assign unique colors to primitives in the same leaf
   std::vector<MeshDescriptor> descriptors;
+  std::vector<Material> materials;
 
   for (const auto& node : bvh)
   {
@@ -276,51 +276,85 @@ void Model::createBVHColors()
       material.colorDiffuse = glm::fvec3(r, g, b);
 
       MeshDescriptor descr;
-      descr.start = node.startTri;
-      descr.nTriangles = node.nTri;
-      descr.material = material;
+      descr.vertexIds = std::vector<unsigned int>(node.nTri * 3);
+      std::iota(descr.vertexIds.begin(), descr.vertexIds.end(), node.startTri * 3);
+      descr.materialIdx = materials.size();
 
+      materials.push_back(material);
       descriptors.push_back(descr);
     }
   }
 
+  bvhBoxMaterials = materials;
   bvhBoxDescriptors = descriptors;
 }
-*/
-void Model::createBVH()
-{
-  auto mortonCodes = getMortonCodes();
-  std::vector<unsigned int> sortedMortonCodes(mortonCodes.begin(), mortonCodes.end());
-  std::vector<unsigned int> triIdxMap;
 
-  std::sort(sortedMortonCodes.begin(), sortedMortonCodes.end());
+
+void Model::sortOnMorton()
+{
+  const auto& mortonCodes = getMortonCodes(triangles, boundingBox);
+  std::vector<unsigned int> sortedMortonCodes;
+  std::vector<unsigned int> triIdxMap;
+  std::vector<unsigned int> triRIdxMap;
+
+  sort(mortonCodes, sortedMortonCodes, triRIdxMap);
 
   triIdxMap.resize(sortedMortonCodes.size());
 
-  for (std::size_t i = 0; i < sortedMortonCodes.size(); ++i)
+  for (std::size_t i = 0; i < triRIdxMap.size(); ++i)
   {
-    triIdxMap[i] = std::find(sortedMortonCodes.begin(), sortedMortonCodes.end(), mortonCodes[i]) - sortedMortonCodes.begin();
+    triIdxMap[triRIdxMap[i]] = i;
   }
 
   std::vector<Triangle> newTriangles(triangles.size());
 
   for (std::size_t ti = 0; ti < triangles.size(); ++ti)
   {
-    newTriangles[ti] = triangles[triIdxMap[ti]];
+    newTriangles[ti] = triangles[triRIdxMap[ti]];
   }
 
+  std::vector<unsigned int> newTriangleMaterialIds(triangleMaterialIds.size());
+
+  for (std::size_t ti = 0; ti < triangles.size(); ++ti)
+  {
+    newTriangleMaterialIds[ti] = triangleMaterialIds[triRIdxMap[ti]];
+  }
+
+  triangleMaterialIds = newTriangleMaterialIds;
   triangles = newTriangles;
 
+  // All this hassle is just so one could use the same GPU vertices for OpenGL drawing
+  // while maintaining a good memory ordering
+  std::vector<unsigned int> vertIdxMap(triIdxMap.size() * 3);
 
+  for (std::size_t ti = 0; ti < triIdxMap.size(); ++ti)
+  {
+    for (std::size_t vi = 0; vi < 3; ++vi)
+    {
+      vertIdxMap[vi + ti * 3] = triIdxMap[ti] * 3 + vi;
+    }
+  }
+
+  for (auto& m : meshDescriptors)
+  {
+    for (auto& vi : m.vertexIds)
+    {
+      vi = vertIdxMap[vi];
+    }
+  }
+}
+
+void Model::createBVH()
+{
   // This is a simple top down approach that places the nodes in an array.
   // This makes the transfer to GPU simple.
-  std::queue<Node> queue;
-  std::queue<int> parentIndices;
+  std::stack<Node> stack;
+  std::stack<int> parentIndices;
 
   std::vector<Node> finishedNodes;
   std::vector<int> touchCount;
   const unsigned int nTris = triangles.size();
-  const unsigned int nodecountAppr = std::pow(2.f, std::ceil(std::log2(nTris / 8.f)) + 1) - 1;;
+  const unsigned int nodecountAppr = std::pow(2.f, std::ceil(std::log2(nTris / static_cast<float>(MAX_TRIS_PER_LEAF))) + 1) - 1;
   finishedNodes.reserve(nodecountAppr);
   touchCount.reserve(nodecountAppr);
 
@@ -333,32 +367,30 @@ void Model::createBVH()
   first.bbox = computeBB(first, triangles);
   first.rightIndex = -1;
 
-  queue.push(first);
+  stack.push(first);
   parentIndices.push(-1);
 
 
-  while (!queue.empty()) {
+  while (!stack.empty()) {
 
-    Node node = queue.front();
-    queue.pop();
-    int parentIndex = parentIndices.front();
+    Node node = stack.top();
+    stack.pop();
+    int parentIndex = parentIndices.top();
     parentIndices.pop();
 
-    int tris = node.nTri - node.startTri;
-
-    if (tris > 8)
+    if (node.nTri > MAX_TRIS_PER_LEAF)
     {
       Node left, right;
       left.startTri = node.startTri;
-      left.nTri = tris / 2;
+      left.nTri = node.nTri / 2;
       left.bbox = computeBB(left, triangles);
 
-      right.startTri = left.startTri + tris / 2;
-      right.nTri = node.nTri - right.startTri;
+      right.startTri = left.startTri + node.nTri / 2;
+      right.nTri = node.nTri - left.nTri;
       right.bbox = computeBB(right, triangles);
 
-      queue.push(left);
-      queue.push(right);
+      stack.push(right);
+      stack.push(left);
 
       parentIndices.push(nodeCount);
       parentIndices.push(nodeCount);
@@ -389,32 +421,6 @@ void Model::createBVH()
 
   this->bvh = finishedNodes;
 
-  ////////////////////////////////////
-  // Reorder MeshDescriptors.vertexIds
-  ////////////////////////////////////
-
-  // All this hassle is just so one could use the same GPU vertices for OpenGL drawing
-  // while maintaining a good memory ordering
-  std::vector<unsigned int> origVertIds(triIdxMap.size() * 3);
-
-  for (std::size_t ti = 0; ti < triIdxMap.size(); ++ti)
-  {
-    for (std::size_t vi = 0; vi < 3; ++vi)
-    {
-      origVertIds[vi + ti * 3] = triIdxMap[ti] * 3 + vi;
-    }
-  }
-
-  for (auto& m : meshDescriptors)
-  {
-    for (auto& vi : m.vertexIds)
-    {
-      vi = origVertIds[vi];
-    }
-  }
-
-  //throw std::runtime_error("asd");
-
   return;
 }
 
@@ -423,3 +429,7 @@ const std::vector<Node>& Model::getBVH() const
   return bvh;
 }
 
+const std::vector<Material>& Model::getBVHBoxMaterials() const
+{
+  return bvhBoxMaterials;
+}

@@ -96,7 +96,7 @@ void App::handleControl(float dTime)
   {
     glm::fvec2 dir = glm::fvec2(mousePos.x - mousePrevPos.x, mousePos.y - mousePrevPos.y);
 
-    camera.rotate(dir);
+    camera.rotate(dir, dTime);
   }
 
   mousePrevPos = mousePos;
@@ -114,16 +114,16 @@ void App::handleControl(float dTime)
     camera.translate(glm::vec2(-1.f, 0.f), dTime);
   
   if (glcontext.isKeyPressed(GLFW_KEY_RIGHT))
-    camera.rotate(glm::vec2(2.f, 0.f));
+    camera.rotate(glm::vec2(1.f, 0.f), dTime);
 
   if (glcontext.isKeyPressed(GLFW_KEY_LEFT))
-    camera.rotate(glm::vec2(-2.f, 0.f));
+    camera.rotate(glm::vec2(-1.f, 0.f), dTime);
     
   if (glcontext.isKeyPressed(GLFW_KEY_UP))
-    camera.rotate(glm::vec2(0.f, -2.f));
+    camera.rotate(glm::vec2(0.f, -1.f), dTime);
     
   if (glcontext.isKeyPressed(GLFW_KEY_DOWN))
-    camera.rotate(glm::vec2(0.f, 2.f));
+    camera.rotate(glm::vec2(0.f, 1.f), dTime);
 }
 
 void App::mouseCallback(int button, int action, int /*modifiers*/)

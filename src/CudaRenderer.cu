@@ -15,7 +15,7 @@
 #define EPSILON 0.0001f
 #define BIGT 99999.f
 #define SHADOWSAMPLING 64
-#define REFLECTIONS 1
+#define REFLECTIONS 0
 
 __device__ bool bboxIntersect(const AABB& box, const Ray& ray, float& t)
 {
@@ -103,12 +103,21 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
 
   int ptr = 1;
   int stack[16] { 0 };
-  stack[0] = 0;
 
   while (ptr > 0)
   {
     --ptr;
-    Node currentNode = bvh[stack[ptr]];
+
+    int currentNodeIdx = stack[ptr];
+    Node currentNode = bvh[currentNodeIdx];
+/*
+    if (currentNode.startTri == 25)
+    {
+      printf("%d\n", currentNode.startTri);
+      printf("%d\n", currentNode.nTri);
+      printf("%d\n\n", currentNode.rightIndex);
+    }
+*/
 
     if (currentNode.rightIndex == -1)
     {
@@ -137,7 +146,7 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
 
       if (leftHit)
       {
-        stack[ptr] = stack[ptr + 1] + 1;
+        stack[ptr] = currentNodeIdx + 1;
         ++ptr;
       }
 

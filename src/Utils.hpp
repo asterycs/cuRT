@@ -12,6 +12,7 @@
 #include <memory>
 #include <vector>
 #include <algorithm>
+#include <numeric>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/glm.hpp"
@@ -137,5 +138,31 @@ struct RaycastResult {
 
   CUDA_FUNCTION operator bool() { return (triangleIdx != -1); }
 };
+
+template<typename T, typename U>
+void reorder(const std::vector<T>& unordered, const std::vector<U>& indices, std::vector<T>& ordered)
+{
+  ordered.resize(indices.size());
+
+  for(std::size_t i = 0; i < indices.size(); i++)
+  {
+    ordered[i] = unordered[indices[i]];
+  }
+}
+
+template<typename T, typename U>
+void sort(const std::vector<T>& unsorted, std::vector<T>& sorted, std::vector<U>& indices)
+{
+  indices.resize(unsorted.size());
+  std::iota(indices.begin(), indices.end(), 0);
+
+  std::sort(indices.begin(), indices.end(), [&unsorted](unsigned int l, unsigned int r)
+    {
+      return unsorted[l] < unsorted[r];
+    });
+
+  sorted.resize(unsorted.size());
+  reorder(unsorted, indices, sorted);
+}
 
 #endif

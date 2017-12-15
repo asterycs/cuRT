@@ -343,9 +343,10 @@ void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLi
   GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
   const auto& vaoID = model.getVaoID();
-  const auto& meshDescriptors = model.getMeshDescriptors(); // TODO: Switch between bvh visualization and normal colors
-  const auto& materials = model.getMaterials();
-  //const auto& meshDescriptors = model.getBVHBoxDescriptors();
+  //const auto& meshDescriptors = model.getMeshDescriptors(); // TODO: Switch between bvh visualization and normal colors
+  //const auto& materials = model.getMaterials();
+  const auto& meshDescriptors = model.getBVHBoxDescriptors();
+  const auto& materials = model.getBVHBoxMaterials();
 
   modelShader.bind();
   modelShader.updateUniformMat4f("posToCamera", camera.getMVP(size));
@@ -362,7 +363,7 @@ void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLi
   for (auto& meshDescriptor : meshDescriptors)
   {
     auto& material = materials[meshDescriptor.materialIdx];
-    
+
     modelShader.updateUniform3fv("material.colorAmbient", material.colorAmbient);
     modelShader.updateUniform3fv("material.colorDiffuse", material.colorDiffuse);
     //modelShader.updateUniform3fv("material.colorSpecular", material.colorSpecular);
@@ -372,7 +373,7 @@ void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLi
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshDescriptor.vertexIds.size() * sizeof(unsigned int), meshDescriptor.vertexIds.data(), GL_STATIC_DRAW);
 
-    GL_CHECK(glDrawElements(GL_TRIANGLES, meshDescriptor.vertexIds.size() * 3, GL_UNSIGNED_INT, 0));
+    GL_CHECK(glDrawElements(GL_TRIANGLES, meshDescriptor.vertexIds.size(), GL_UNSIGNED_INT, 0));
 
     glDeleteBuffers(1, &elementbuffer);
   }

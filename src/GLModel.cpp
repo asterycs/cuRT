@@ -6,7 +6,7 @@
 
 #include <vector>
 
-GLModel::GLModel()
+GLModel::GLModel() : deviceBVH(nullptr)
 {
 
 }
@@ -26,6 +26,8 @@ void GLModel::load(const Model& model)
 
   auto& meshDescriptors = model.getMeshDescriptors();
   bvhBoxDescriptors = model.getBVHBoxDescriptors();
+  bvhBoxMaterials = model.getBVHBoxMaterials();
+
   auto& materials = model.getMaterials();
   auto& triangleMaterialIds = model.getTriangleMaterialIds();
 
@@ -41,10 +43,21 @@ void GLModel::load(const Model& model)
   finalizeLoad(triangles, meshDescriptors, materials, triangleMaterialIds);
 }
 
+const std::vector<MeshDescriptor>& GLModel::getBVHBoxDescriptors() const
+{
+  return bvhBoxDescriptors;
+}
+
+const std::vector<Material>& GLModel::getBVHBoxMaterials() const
+{
+  return bvhBoxMaterials;
+}
+
 const std::string& GLModel::getFileName() const
 {
   return fileName;
 }
+
 
 #ifdef ENABLE_CUDA
 const Node* GLModel::getDeviceBVH() const

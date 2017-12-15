@@ -11,7 +11,7 @@ CUDA_HOST_DEVICE Camera::Camera() :
   near(0.001f),
   far(10.f),
   moveSpeed(0.25f),
-  mouseSpeed(0.001f),
+  mouseSpeed(0.01f),
   position(0.f, 0.f, 0.f),
   hAngle(0.0f),
   vAngle(0.0f)
@@ -59,10 +59,10 @@ CUDA_HOST_DEVICE const glm::fvec3 Camera::getUp() const
   return glm::normalize(glm::cross(getForward(), getLeft()));
 }
 
-CUDA_HOST_DEVICE void Camera::rotate(const glm::fvec2& r)
+CUDA_HOST_DEVICE void Camera::rotate(const glm::fvec2& r, const float /*dTime*/)
 {
-  hAngle += mouseSpeed * r.y;
-  vAngle += mouseSpeed * r.x;
+  hAngle += r.y * mouseSpeed;
+  vAngle += r.x * mouseSpeed;
 }
 
 CUDA_HOST_DEVICE void Camera::translate(const glm::fvec2& t, const float dTime)
@@ -124,7 +124,6 @@ CUDA_HOST_DEVICE float Camera::getFov() const
 CUDA_HOST std::ostream& operator<<(std::ostream& os, const Camera& camera)
 {
   os << camera.fov << " " << camera.near << " " << camera.far << " "\
-      << camera.moveSpeed << " " << camera.mouseSpeed << " "\
       << camera.position.x << " " << camera.position.y << " " << camera.position.z << " "\
       << camera.hAngle << " " << camera.vAngle;
 
@@ -134,7 +133,6 @@ CUDA_HOST std::ostream& operator<<(std::ostream& os, const Camera& camera)
 CUDA_HOST std::istream& operator>>(std::istream& is, Camera& camera)
 {
   is >> camera.fov >> camera.near >> camera.far \
-      >> camera.moveSpeed >> camera.mouseSpeed \
       >> camera.position.x >> camera.position.y >> camera.position.z \
       >> camera.hAngle >> camera.vAngle;
 

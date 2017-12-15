@@ -17,12 +17,14 @@ public:
   const Node* getDeviceBVH() const;
 #endif
 
+  const std::vector<Material>& getBVHBoxMaterials() const;
   const std::vector<MeshDescriptor>& getBVHBoxDescriptors() const;
   void load(const Model& model);
   const std::string& getFileName() const;
 
 private:
   std::vector<MeshDescriptor> bvhBoxDescriptors;
+  std::vector<Material> bvhBoxMaterials;
   std::string fileName;
 
 #ifdef ENABLE_CUDA
