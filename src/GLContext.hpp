@@ -32,6 +32,8 @@ public:
   void resize(const glm::ivec2& newSize);
   bool shadersLoaded() const;
   
+  void showWindow();
+
   glm::ivec2 getSize() const;
 
   void clear();

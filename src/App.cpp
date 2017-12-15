@@ -87,6 +87,11 @@ void App::MainLoop()
   createSceneFile(LAST_SCENEFILE_NAME);
 }
 
+void App::showWindow()
+{
+  glcontext.showWindow();
+}
+
 void App::handleControl(float dTime)
 {
   // For mouse
@@ -287,7 +292,19 @@ void App::renderToFile(const std::string& sceneFile, const std::string& /*outfil
   loadSceneFile(sceneFile);
 
 #ifdef ENABLE_CUDA
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+
+  cudaEventRecord(start);
   cudaRenderer.renderToCanvas(glcanvas, camera, glmodel, gllight);
+  cudaEventRecord(stop);
+
+  cudaEventSynchronize(stop);
+  float millis = 0;
+  cudaEventElapsedTime(&millis, start, stop);
+
+  std::cout << "Rendering time [ms]: " << millis << std::endl;
 #endif
 
   return;

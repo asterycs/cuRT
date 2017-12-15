@@ -21,6 +21,8 @@ public:
     void operator=(App& app) = delete;
     static App& getInstance() {static App app; return app;}
 
+    void showWindow();
+
     void MainLoop();
 
     void mouseCallback(int button, int action, int modifiers);

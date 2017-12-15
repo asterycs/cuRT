@@ -77,8 +77,8 @@ void Model::initialize(const aiScene *scene)
         materials.push_back(material);
         meshDescriptors.push_back(meshDescr);
         triangleOffset += mesh->mNumFaces;
-      }//else
-       // continue;
+      }else
+        continue;
       
       for (std::size_t vi = 0; vi < mesh->mNumVertices; vi++)
       {

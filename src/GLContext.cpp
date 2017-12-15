@@ -26,6 +26,7 @@ GLContext::GLContext() :
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+  glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
   glfwWindowHint(GLFW_SAMPLES, 0);
   glfwWindowHint(GLFW_RED_BITS, 8);
   glfwWindowHint(GLFW_GREEN_BITS, 8);
@@ -333,6 +334,11 @@ void GLContext::updateShadowMap(const GLDrawable& model, const GLLight& light)
   return;
 }
 
+void GLContext::showWindow()
+{
+  glfwShowWindow(window);
+}
+
 void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLight& light)
 {
   if (!shadersLoaded() || model.getNTriangles() == 0)
@@ -343,10 +349,10 @@ void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLi
   GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
   const auto& vaoID = model.getVaoID();
-  //const auto& meshDescriptors = model.getMeshDescriptors(); // TODO: Switch between bvh visualization and normal colors
-  //const auto& materials = model.getMaterials();
-  const auto& meshDescriptors = model.getBVHBoxDescriptors();
-  const auto& materials = model.getBVHBoxMaterials();
+  const auto& meshDescriptors = model.getMeshDescriptors(); // TODO: Switch between bvh visualization and normal colors
+  const auto& materials = model.getMaterials();
+  //const auto& meshDescriptors = model.getBVHBoxDescriptors();
+  //const auto& materials = model.getBVHBoxMaterials();
 
   modelShader.bind();
   modelShader.updateUniformMat4f("posToCamera", camera.getMVP(size));

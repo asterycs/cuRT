@@ -26,7 +26,7 @@ if (ENABLE_CUDA)
     CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS Auto)
     list(APPEND CMAKE_CUDA_FLAGS ${CUDA_ARCH_FLAGS})
     string(REPLACE ";" " " CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}") # Phew...
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -lineinfo")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
 endif(ENABLE_CUDA)
 
 find_package(glfw3 REQUIRED)
@@ -138,7 +138,14 @@ add_custom_target(
         copy_shader_files
         ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/src/shaders ${CMAKE_BINARY_DIR}/src/shaders/
-        COMMENT "Copying Files for target: graphx" VERBATIM 
+        COMMENT "Copying shader files for target: graphx" VERBATIM 
+        )
+
+add_custom_target(
+        copy_benchmark_script
+        ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/benchmark.sh ${CMAKE_BINARY_DIR}/src/
+        COMMENT "Copying benchmark script for target: graphx" VERBATIM 
         )
 
 

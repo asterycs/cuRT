@@ -76,6 +76,7 @@ int main(int argc, char * argv[]) {
       if (fileExists(LAST_SCENEFILE_NAME))
         app.loadSceneFile(LAST_SCENEFILE_NAME);
 
+      app.showWindow();
       app.MainLoop();
     }
     catch (std::exception& e)

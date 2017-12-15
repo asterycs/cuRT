@@ -110,14 +110,7 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
 
     int currentNodeIdx = stack[ptr];
     Node currentNode = bvh[currentNodeIdx];
-/*
-    if (currentNode.startTri == 25)
-    {
-      printf("%d\n", currentNode.startTri);
-      printf("%d\n", currentNode.nTri);
-      printf("%d\n\n", currentNode.rightIndex);
-    }
-*/
+
 
     if (currentNode.rightIndex == -1)
     {
