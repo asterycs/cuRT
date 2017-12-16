@@ -67,7 +67,7 @@ __device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle
   if (a > -EPSILON && a < EPSILON)
     return false;
 
-  f = 1 / a;
+  f = __fdividef(1.f, a);
   s = ray.origin - vertex0;
   u = f * glm::dot(s, h);
 
@@ -217,7 +217,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
   glm::fvec3 lightSamplePoint;
   float pdf;
 
-  for (unsigned int i = 0; i < supersampling; ++i) // Maybe utilize dynamic parallelism here?
+  for (unsigned int i = 0; i < supersampling; ++i)
   {
     light.sample(pdf, lightSamplePoint, curandState1, curandState2);
 

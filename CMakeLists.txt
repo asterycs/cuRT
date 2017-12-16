@@ -29,9 +29,9 @@ if (ENABLE_CUDA)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
 endif(ENABLE_CUDA)
 
-find_package(glfw3 REQUIRED)
-find_package(OpenGL REQUIRED)
+find_package(X11 REQUIRED)
 find_package(GLEW REQUIRED)
+find_package(OpenGL REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK2 REQUIRED gtk+-3.0)
@@ -45,34 +45,40 @@ endif(CCACHE_FOUND)
 
 # Assimp
 ExternalProject_Add(assimp
-       PREFIX "${CMAKE_BINARY_DIR}/ext/assimp"
-       GIT_REPOSITORY https://github.com/assimp/assimp.git
-       #GIT_TAG "v4.0.1"
-       GIT_PROGRESS 1
-       UPDATE_DISCONNECTED 1
-       INSTALL_DIR "${CMAKE_BINARY_DIR}/assimp"
-       CMAKE_ARGS
-           "-DASSIMP_BUILD_TESTS=OFF"
-           "-DASSIMP_BUILD_ASSIMP_TOOLS=OFF"
-           "-DBUILD_SHARED_LIBS=OFF" # Build static
-           "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/assimp"
-           "-DCMAKE_BUILD_TYPE=Release"
-           "-DCMAKE_CXX_FLAGS=-fPIC" "-DCMAKE_C_FLAGS=-fPIC"
-           )
+    PREFIX "${CMAKE_BINARY_DIR}/ext/assimp"
+    GIT_REPOSITORY https://github.com/assimp/assimp.git
+    GIT_TAG "v4.1.0"
+    GIT_PROGRESS 1
+    UPDATE_DISCONNECTED 1
+    LOG_DOWNLOAD 1
+    LOG_UPDATE 1
+    LOG_CONFIGURE 1
+    LOG_BUILD 1
+    LOG_INSTALL 1
+    INSTALL_DIR "${CMAKE_BINARY_DIR}/assimp"
+    CMAKE_ARGS
+       "-DASSIMP_BUILD_TESTS=OFF"
+       "-DASSIMP_BUILD_ASSIMP_TOOLS=OFF"
+       "-DBUILD_SHARED_LIBS=OFF" # Build static
+       "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/assimp"
+       "-DCMAKE_BUILD_TYPE=Release"
+       "-DCMAKE_CXX_FLAGS=-fPIC" "-DCMAKE_C_FLAGS=-fPIC"
+       )
 
-set(ASSIMP_LIBRARIES "${CMAKE_BINARY_DIR}/assimp/lib/${CMAKE_STATIC_LIBRARY_PREFIX}assimp${CMAKE_STATIC_LIBRARY_SUFFIX};${CMAKE_BINARY_DIR}/assimp/lib/${CMAKE_STATIC_LIBRARY_PREFIX}IrrXML${CMAKE_STATIC_LIBRARY_SUFFIX};z;")
-set(ASSIMP_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/assimp/include")
+ExternalProject_Get_Property(assimp INSTALL_DIR)
+set(ASSIMP_INCLUDE_DIRS ${INSTALL_DIR}/include)
+set(ASSIMP_LIBRARIES "${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}assimp${CMAKE_STATIC_LIBRARY_SUFFIX};${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}IrrXML${CMAKE_STATIC_LIBRARY_SUFFIX};z;")
 
 # Native file dialog
 ExternalProject_Add(nativefiledialog
-       PREFIX "${CMAKE_BINARY_DIR}/ext/nativefiledialog"
-       GIT_REPOSITORY https://github.com/mlabbe/nativefiledialog.git
-       GIT_PROGRESS 1
-       UPDATE_DISCONNECTED 1
-       CONFIGURE_COMMAND ""
-       BUILD_COMMAND cd ${CMAKE_BINARY_DIR}/ext/nativefiledialog/src/nativefiledialog/build/gmake_linux && make
-       INSTALL_COMMAND ""
-       )
+    PREFIX "${CMAKE_BINARY_DIR}/ext/nativefiledialog"
+    GIT_REPOSITORY https://github.com/mlabbe/nativefiledialog.git
+    GIT_PROGRESS 1
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND cd ${CMAKE_BINARY_DIR}/ext/nativefiledialog/src/nativefiledialog/build/gmake_linux && make
+    INSTALL_COMMAND ""
+    UPDATE_DISCONNECTED 1
+    )
 
 set(NATIVEFILEDIALOG_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/ext/nativefiledialog/src/nativefiledialog/src/include")
 set(NATIVEFILEDIALOG_LIBRARIES "${CMAKE_BINARY_DIR}/ext/nativefiledialog/src/nativefiledialog/build/lib/Release/x64/${CMAKE_STATIC_LIBRARY_PREFIX}nfd${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -80,35 +86,95 @@ set(NATIVEFILEDIALOG_LIBRARIES "${CMAKE_BINARY_DIR}/ext/nativefiledialog/src/nat
 
 # cxxopts
 ExternalProject_Add(cxxopts
-       PREFIX "${CMAKE_BINARY_DIR}/ext/cxxopts"
-       GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-       GIT_TAG 1_0
-       GIT_PROGRESS 1
-       UPDATE_DISCONNECTED 1
-       INSTALL_DIR "${CMAKE_BINARY_DIR}/cxxopts"
-       CMAKE_ARGS
-           "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/cxxopts"
-           "-DCMAKE_BUILD_TYPE=Release"
-       )
-
-set(CXXOPTS_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/cxxopts/include")
+    PREFIX "${CMAKE_BINARY_DIR}/ext/cxxopts"
+    GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+    GIT_TAG 1_0
+    GIT_PROGRESS 1
+    UPDATE_DISCONNECTED 1
+    LOG_DOWNLOAD 1
+    LOG_UPDATE 1
+    LOG_CONFIGURE 1
+    LOG_BUILD 1
+    LOG_INSTALL 1
+    INSTALL_DIR "${CMAKE_BINARY_DIR}/ext/cxxopts"
+    CMAKE_ARGS
+       "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/cxxopts"
+       "-DCMAKE_BUILD_TYPE=Release"
+    )
+ExternalProject_Get_Property(cxxopts SOURCE_DIR)
+set(CXXOPTS_INCLUDE_DIRS ${SOURCE_DIR}/include)
 
 # glm
 ExternalProject_Add(
-       glm
-       PREFIX ${CMAKE_BINARY_DIR}/ext/glm
-       GIT_REPOSITORY https://github.com/g-truc/glm.git
-       GIT_TAG 0.9.9-a2
-       GIT_PROGRESS 1
-       UPDATE_DISCONNECTED 1
-       UPDATE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
-       LOG_DOWNLOAD ON
-       )
+    glm
+    PREFIX ${CMAKE_BINARY_DIR}/ext/glm
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG 0.9.9-a2
+    GIT_PROGRESS 1
+    UPDATE_DISCONNECTED 1
+    UPDATE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
+    UPDATE_DISCONNECTED 1
+    LOG_DOWNLOAD 1
+    LOG_UPDATE 1
+    LOG_CONFIGURE 1
+    LOG_BUILD 1
+    LOG_INSTALL 1
+    )
 
 ExternalProject_Get_Property(glm SOURCE_DIR)
 set(GLM_INCLUDE_DIRS ${SOURCE_DIR})
 
+# glfw
+ExternalProject_Add(
+    glfw
+    PREFIX ${CMAKE_BINARY_DIR}/ext/glfw
+    GIT_REPOSITORY https://github.com/glfw/glfw.git
+    GIT_TAG 3.2.1
+    GIT_PROGRESS 1
+    UPDATE_DISCONNECTED 1
+    LOG_DOWNLOAD 1
+    LOG_UPDATE 1
+    LOG_CONFIGURE 1
+    LOG_BUILD 1
+    LOG_INSTALL 1
+    CMAKE_ARGS
+        "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/ext/glfw"
+        "-DCMAKE_BUILD_TYPE=Release"
+        "-DGLFW_BUILD_EXAMPLES=OFF"
+        "-DGLFW_BUILD_TESTS=OFF"
+        "-DGLFW_BUILD_DOCS=OFF"
+    )
+
+ExternalProject_Get_Property(glfw INSTALL_DIR)
+set(GLFW_INCLUDE_DIRS ${INSTALL_DIR}/include)
+set(GLFW_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glfw3${CMAKE_STATIC_LIBRARY_SUFFIX})
+
+# glew
+#ExternalProject_Add(glew
+#    PREFIX ${CMAKE_BINARY_DIR}/ext/glew
+#    GIT_REPOSITORY https://github.com/nigels-com/glew.git
+#    GIT_TAG glew-1.13.0
+#    UPDATE_DISCONNECTED 1
+#    LOG_DOWNLOAD 1
+#    LOG_UPDATE 1
+#    LOG_CONFIGURE 1
+#    LOG_BUILD 1
+#    LOG_INSTALL 1
+#    UPDATE_COMMAND ""
+#    SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/ext/glew/src
+#    CONFIGURE_COMMAND ${CMAKE_COMMAND} ${CMAKE_CURRENT_BINARY_DIR}/ext/glew/src/glew/build/cmake
+
+#    CMAKE_ARGS
+#        "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/ext/glew"
+#        "-DCMAKE_BUILD_TYPE=Release"
+#    )
+
+#ExternalProject_Get_Property(glew INSTALL_DIR)
+#set(GLEW_INCLUDE_DIRS ${INSTALL_DIR}/include)
+#set(GLEW_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}GLEW${CMAKE_STATIC_LIBRARY_SUFFIX})
+
 include_directories(
+    ${GLFW_INCLUDE_DIRS}
     ${ASSIMP_INCLUDE_DIRS}
     ${NATIVEFILEDIALOG_INCLUDE_DIRS}
     ${GTK2_INCLUDE_DIRS}
@@ -121,9 +187,14 @@ include_directories(
 
 
 set(LINK_LIBS
-    glfw
     GLEW
+    ${GLFW_LIBRARIES}
     GL
+    ${X11_LIBRARIES}
+    ${X11_Xcursor_LIB}
+    ${X11_Xinerama_LIB}
+    ${X11_Xrandr_LIB}
+    ${X11_Xxf86vm_LIB}
     ${ASSIMP_LIBRARIES}
     ${NATIVEFILEDIALOG_LIBRARIES}
     ${GTK2_LIBRARIES}
@@ -151,30 +222,4 @@ add_custom_target(
 
 add_subdirectory(src)
 
-
-#set_source_files_properties(${CXX_SRC} PROPERTIES COMPILE_FLAGS "\
-#-Wall \
-#-Wextra \light.getSize()
-#-Wcast-align \
-#-Wcast-qual \
-#-Wctor-dtor-privacy \
-#-Wdisabled-optimization \
-#-Wformat=2 \
-#-Winit-self \
-#-Wlogical-op \
-#-Wmissing-declarations \
-#-Wmissing-include-dirs \
-#-Wnoexcept \
-#-Wold-style-cast \
-#-Woverloaded-virtual \
-#-Wredundant-decls \
-#-Wshadow \
-#-Wsign-conversion \
-#-Wsign-promo \
-#-Wstrict-null-sentinel \
-#-Wstrict-overflow=5 \
-#-Wswitch-default \
-#-Wundef \
-#-Werror \
-#-Wno-unused")
 
