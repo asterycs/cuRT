@@ -62,6 +62,9 @@ void Model::initialize(const aiScene *scene)
         mat.Get(AI_MATKEY_COLOR_EMISSIVE,    aiEmission);
         mat.Get(AI_MATKEY_SHININESS,         aiShininess);
         mat.Get(AI_MATKEY_COLOR_TRANSPARENT, aiTransparent);
+        mat.Get(AI_MATKEY_COLOR_TRANSPARENT, aiTransparent);
+
+        mat.Get(AI_MATKEY_REFRACTI,          material.refrIdx);
 
         material.colorAmbient    = ai2glm3f(aiAmbient);
         material.colorDiffuse    = ai2glm3f(aiDiffuse);

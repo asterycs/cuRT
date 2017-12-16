@@ -62,6 +62,8 @@ struct Material
   glm::fvec3 colorShininess;
   glm::fvec3 colorTransparent;
 
+  float refrIdx;
+
   // TextureIndex?
 
   Material() : colorAmbient(0.0f), colorDiffuse(0.0f), colorEmission(0.0f), colorSpecular(0.0f), colorShininess(0.0f) {};

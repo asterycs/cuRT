@@ -17,7 +17,7 @@
 #define EPSILON 0.0001f
 #define BIGT 99999.f
 #define SHADOWSAMPLING 64
-#define REFLECTIONS 1
+#define SECONDARY_RAYS 1
 
 __device__ bool bboxIntersect(const AABB& box, const Ray& ray, float& t)
 {
@@ -42,9 +42,19 @@ __device__ void debug_vec3f(const glm::fvec3& v)
   printf("%f %f %f\n", v.x, v.y, v.z);
 }
 
-__device__ glm::fvec3 mirrorDirection(const glm::vec3& normal, const glm::vec3& incoming) {
+__device__ glm::fvec3 reflectionDirection(const glm::vec3& normal, const glm::vec3& incoming) {
   glm::vec3 ret = incoming - 2 * glm::dot(incoming, normal) * normal;
   return glm::normalize(ret);
+}
+
+__device__ glm::fvec3 refractionDirection(const glm::vec3& normal, const glm::vec3& incoming, const float index1, const float index2) {
+  float cosInAng = -glm::dot(incoming, normal);
+  float sinOutAng = (sin(acos(cosInAng) * index1)) / index2;
+  glm::fvec3 den = (incoming + cosInAng * normal) * sinOutAng;
+
+  glm::fvec3 ret = den / sin(acos(cosInAng)) - normal * cos(asin(sinOutAng));
+
+  return ret;
 }
 
 __device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle, float& t)
@@ -262,7 +272,7 @@ __device__ glm::fvec3 rayTrace(\
     const int reflections)
 {
 
-  int it = reflections;
+  int secondaryLeft = reflections;
   glm::fvec3 color(0.f);
 
   // Primary
@@ -278,29 +288,50 @@ __device__ glm::fvec3 rayTrace(\
   color += material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
 
   glm::fvec3 filterSpecular = material->colorSpecular;
-  glm::fvec3 reflRayOrigin;
-  glm::fvec3 reflRayDir;
+  glm::fvec3 filterTransparent = material->colorTransparent;
 
   // Secondary or reflections
-  while (glm::length(filterSpecular) > 0.0f && it)
+  while (secondaryLeft)
   {
-    reflRayOrigin = result.point + hitTriangle->normal() * EPSILON;
-    reflRayDir = mirrorDirection(hitTriangle->normal(), ray.direction);
-    Ray reflRay = Ray(reflRayOrigin, reflRayDir);
-    result = rayCast(reflRay, bvh, triangles, nTriangles);
+    /*if (glm::length(filterSpecular) > 0.0f)
+    {
+      glm::fvec3 reflRayOrigin = result.point + hitTriangle->normal() * EPSILON;
+      glm::fvec3 reflRayDir = reflectionDirection(hitTriangle->normal(), ray.direction);
+      Ray reflRay = Ray(reflRayOrigin, reflRayDir);
+      result = rayCast(reflRay, bvh, triangles, nTriangles);
 
-    if (!result)
-      break;
+      if (!result)
+        break;
 
-    hitTriangle = &triangles[result.triangleIdx];
-    material = &materials[triangleMaterialIds[result.triangleIdx]];
+      hitTriangle = &triangles[result.triangleIdx];
+      material = &materials[triangleMaterialIds[result.triangleIdx]];
 
-    color += filterSpecular * material->colorAmbient * 0.25f; // Ambient lightning
-    color += filterSpecular * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
+      color += filterSpecular * material->colorAmbient * 0.25f; // Ambient lightning
+      color += filterSpecular * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
 
-    filterSpecular = material->colorSpecular;
+      filterSpecular = material->colorSpecular;
+    }*/
 
-    --it;
+    if (glm::length(filterTransparent) > 0.0f)
+    {
+      glm::fvec3 transRayOrigin = result.point + hitTriangle->normal() * EPSILON;
+      glm::fvec3 transRayDir = refractionDirection(hitTriangle->normal(), ray.direction, 1.f, material->refrIdx);
+      Ray reflRay = Ray(transRayOrigin, transRayDir);
+      result = rayCast(reflRay, bvh, triangles, nTriangles);
+
+      if (!result)
+        break;
+
+      hitTriangle = &triangles[result.triangleIdx];
+      material = &materials[triangleMaterialIds[result.triangleIdx]];
+
+      color += filterTransparent * material->colorAmbient * 0.25f; // Ambient lightning
+      color += filterTransparent * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
+
+      filterTransparent = material->colorTransparent;
+    }
+
+    --secondaryLeft;
   }
 
   return color;
@@ -366,7 +397,7 @@ cudaRender(\
       light, \
       curandStateDevXPtr[x + canvasSize.x * y], \
       curandStateDevYPtr[x + canvasSize.x * y], \
-      REFLECTIONS);
+      SECONDARY_RAYS);
 
   writeToCanvas(x, y, canvas, canvasSize, color);
 
