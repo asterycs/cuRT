@@ -298,9 +298,9 @@ __device__ glm::fvec3 rayTrace(\
       glm::fvec3 reflRayOrigin = result.point + hitTriangle->normal() * EPSILON;
       glm::fvec3 reflRayDir = reflectionDirection(hitTriangle->normal(), ray.direction);
       Ray reflRay = Ray(reflRayOrigin, reflRayDir);
-      result = rayCast(reflRay, bvh, triangles, nTriangles);
+      RaycastResult reflResult = rayCast(reflRay, bvh, triangles, nTriangles);
 
-      if (!result)
+      if (!reflResult)
         break;
 
       hitTriangle = &triangles[result.triangleIdx];
@@ -314,19 +314,28 @@ __device__ glm::fvec3 rayTrace(\
 
     if (glm::length(filterTransparent) > 0.0f)
     {
-      glm::fvec3 transRayOrigin = result.point + hitTriangle->normal() * EPSILON;
+      glm::fvec3 transRayOrigin = result.point - hitTriangle->normal() * EPSILON;
       glm::fvec3 transRayDir = refractionDirection(hitTriangle->normal(), ray.direction, 1.f, material->refrIdx);
-      Ray reflRay = Ray(transRayOrigin, transRayDir);
-      result = rayCast(reflRay, bvh, triangles, nTriangles);
 
-      if (!result)
+      Ray transRay = Ray(transRayOrigin, transRayDir);
+      RaycastResult transResult = rayCast(transRay, bvh, triangles, nTriangles);
+
+      if (!transResult)
         break;
 
-      hitTriangle = &triangles[result.triangleIdx];
-      material = &materials[triangleMaterialIds[result.triangleIdx]];
+      const Triangle& transHitTriangle = triangles[transResult.triangleIdx];
+      transRayOrigin = transResult.point + transHitTriangle.normal() * EPSILON;
+      transRayDir = refractionDirection(hitTriangle->normal(), ray.direction, material->refrIdx, 1.f);
 
-      color += filterTransparent * material->colorAmbient * 0.25f; // Ambient lightning
-      color += filterTransparent * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
+      transRay = Ray(transRayOrigin, transRayDir);
+      transResult = rayCast(transRay, bvh, triangles, nTriangles);
+
+      const Triangle& transOutHitTriangle = triangles[result.triangleIdx];
+      const Material& transMaterial = materials[triangleMaterialIds[transResult.triangleIdx]];
+
+      color += filterTransparent * transMaterial.colorAmbient * 0.25f; // Ambient lightning
+//      color += filterTransparent * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
+      color += filterTransparent * transMaterial.colorDiffuse / glm::pi<float>() * glm::fvec3(0.5f, 0.5f, 0.5f);
 
       filterTransparent = material->colorTransparent;
     }

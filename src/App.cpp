@@ -106,28 +106,28 @@ void App::handleControl(float dTime)
 
   mousePrevPos = mousePos;
 
-  if (glcontext.isKeyPressed(GLFW_KEY_W))
+  if (glcontext.isKeyPressed(GLFW_KEY_W, 0))
     camera.translate(glm::vec2(0.f, 1.f), dTime);
 
-  if (glcontext.isKeyPressed(GLFW_KEY_S))
+  if (glcontext.isKeyPressed(GLFW_KEY_S, 0))
     camera.translate(glm::vec2(0.f, -1.f), dTime);
 
-  if (glcontext.isKeyPressed(GLFW_KEY_A))
+  if (glcontext.isKeyPressed(GLFW_KEY_A, 0))
     camera.translate(glm::vec2(1.f, 0.f), dTime);
 
-  if (glcontext.isKeyPressed(GLFW_KEY_D))
+  if (glcontext.isKeyPressed(GLFW_KEY_D, 0))
     camera.translate(glm::vec2(-1.f, 0.f), dTime);
   
-  if (glcontext.isKeyPressed(GLFW_KEY_RIGHT))
+  if (glcontext.isKeyPressed(GLFW_KEY_RIGHT, 0))
     camera.rotate(glm::vec2(1.f, 0.f), dTime);
 
-  if (glcontext.isKeyPressed(GLFW_KEY_LEFT))
+  if (glcontext.isKeyPressed(GLFW_KEY_LEFT, 0))
     camera.rotate(glm::vec2(-1.f, 0.f), dTime);
     
-  if (glcontext.isKeyPressed(GLFW_KEY_UP))
+  if (glcontext.isKeyPressed(GLFW_KEY_UP, 0))
     camera.rotate(glm::vec2(0.f, -1.f), dTime);
     
-  if (glcontext.isKeyPressed(GLFW_KEY_DOWN))
+  if (glcontext.isKeyPressed(GLFW_KEY_DOWN, 0))
     camera.rotate(glm::vec2(0.f, 1.f), dTime);
 }
 
@@ -169,7 +169,7 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
       loadSceneFile(outPath);
       free(outPath);
     }
-  }else if (key == GLFW_KEY_C && action == GLFW_PRESS)
+  }else if (key == GLFW_KEY_S && action == GLFW_PRESS && (modifiers & GLFW_MOD_CONTROL))
   {
     std::cout << "Choose model file" << std::endl;
     nfdchar_t *outPath = NULL;

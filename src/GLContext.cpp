@@ -431,9 +431,19 @@ glm::vec2 GLContext::getCursorPos()
   return glm::vec2(x, y);
 }
 
-bool GLContext::isKeyPressed(const int glfwKey) const
+bool GLContext::isKeyPressed(const int glfwKey, const int modifiers) const
 {
-  return glfwGetKey(window, glfwKey); 
+  int ctrl  = glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) || glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) << 1;
+  int shift = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) << 0;
+  int super = glfwGetKey(window, GLFW_KEY_LEFT_SUPER) || glfwGetKey(window, GLFW_KEY_RIGHT_SUPER) << 3;
+  int alt   = glfwGetKey(window, GLFW_KEY_LEFT_ALT) || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) << 2;
+
+  int pressedMods = shift | ctrl | alt | super;
+
+  if (modifiers == pressedMods)
+    return glfwGetKey(window, glfwKey);
+  else
+    return false;
 }
 
 void GLContext::resize(const glm::ivec2& newSize)

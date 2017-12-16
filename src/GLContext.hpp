@@ -43,7 +43,7 @@ public:
   float getDTime();
   std::string getFPS();
   glm::vec2 getCursorPos();
-  bool isKeyPressed(const int glfwKey) const;
+  bool isKeyPressed(const int glfwKey, const int modifiers) const;
   
   float getTime() const;
   void updateFPS(const float dTime);
