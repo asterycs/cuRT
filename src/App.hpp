@@ -49,7 +49,7 @@ private:
     ~App();
 
     bool mousePressed;
-    glm::vec2 mousePrevPos;
+    glm::dvec2 mousePrevPos;
     ActiveRenderer activeRenderer;
 
     GLContext glcontext;

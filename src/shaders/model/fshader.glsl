@@ -27,7 +27,7 @@ void main(){
   if (cosL > 0)
     lightVisible = true;
 
-  float epsilon = 0.005 * tan(acos(cosT));
+  float epsilon = 0.001 * tan(acos(cosT));
   epsilon = clamp(epsilon, 0.f, 0.00001f);
 
   float visibility = 1.0;

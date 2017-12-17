@@ -139,7 +139,7 @@ struct RaycastResult {
     point()
   {}
 
-  CUDA_FUNCTION operator bool() { return (triangleIdx != -1); }
+  CUDA_FUNCTION operator bool() const { return (triangleIdx != -1); }
 };
 
 template<typename T, typename U>

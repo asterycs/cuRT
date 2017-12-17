@@ -100,6 +100,8 @@ ExternalProject_Add(cxxopts
     CMAKE_ARGS
        "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/cxxopts"
        "-DCMAKE_BUILD_TYPE=Release"
+       "-DCXXOPTS_BUILD_EXAMPLES=OFF"
+       "-DCXXOPTS_BUILD_TESTS=OFF"
     )
 ExternalProject_Get_Property(cxxopts SOURCE_DIR)
 set(CXXOPTS_INCLUDE_DIRS ${SOURCE_DIR}/include)

@@ -16,8 +16,9 @@
 #define BLOCKWIDTH 8
 #define EPSILON 0.0001f
 #define BIGT 99999.f
-#define SHADOWSAMPLING 64
+#define SHADOWSAMPLING 1
 #define SECONDARY_RAYS 1
+#define AIR_INDEX 0.8f
 
 __device__ bool bboxIntersect(const AABB& box, const Ray& ray, float& t)
 {
@@ -32,7 +33,7 @@ __device__ bool bboxIntersect(const AABB& box, const Ray& ray, float& t)
   float tmind = glm::compMax(tmin);
   float tmaxd = glm::compMin(tmax);
 
-  t = min(tmind, tmaxd);
+  t = fminf(tmind, tmaxd);
 
   return tmaxd >= tmind && !(tmaxd < 0.f && tmind < 0.f);
 }
@@ -42,22 +43,34 @@ __device__ void debug_vec3f(const glm::fvec3& v)
   printf("%f %f %f\n", v.x, v.y, v.z);
 }
 
-__device__ glm::fvec3 reflectionDirection(const glm::vec3& normal, const glm::vec3& incoming) {
-  glm::vec3 ret = incoming - 2 * glm::dot(incoming, normal) * normal;
-  return glm::normalize(ret);
+inline __device__ glm::fvec3 reflectionDirection(const glm::vec3& normal, const glm::vec3& incoming) {
+
+  const float cosT = glm::dot(incoming, normal);
+
+  if (cosT > 0.f)
+    return incoming - 2 * cosT * -normal;
+  else
+    return incoming - 2 * cosT * normal;
 }
 
-__device__ glm::fvec3 refractionDirection(const glm::vec3& normal, const glm::vec3& incoming, const float index1, const float index2) {
-  float cosInAng = -glm::dot(incoming, normal);
-  float sinOutAng = (sin(acos(cosInAng) * index1)) / index2;
+inline __device__ glm::fvec3 refractionDirection(const glm::vec3& normal, const glm::vec3& incoming, const float index1, const float index2) {
+  /*float sinOutAng = (sin(acos(cosInAng) * index1)) / index2;
   glm::fvec3 den = (incoming + cosInAng * normal) * sinOutAng;
 
   glm::fvec3 ret = den / sin(acos(cosInAng)) - normal * cos(asin(sinOutAng));
 
-  return ret;
+  return ret;*/
+
+  const float cosInAng = fabsf(glm::dot(incoming, normal));
+  const float sin2t = (index1 / index2) * (index1 / index2) * (1 - cosInAng * cosInAng);
+
+  if (sin2t > 1)
+    return reflectionDirection(normal, incoming);
+  else
+    return index1 / index2 * incoming + (index1 / index2 * cosInAng - sqrt(1 - sin2t)) * normal;
 }
 
-__device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle, float& t)
+__device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle, float& t, glm::fvec2& uv)
 {
   /* Möller-Trumbore algorithm
    * https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
@@ -94,6 +107,7 @@ __device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle
 
   if (t > EPSILON)
   {
+    uv = glm::fvec2(u, v);
     return true;
   }
   else
@@ -112,7 +126,8 @@ __global__ void dynamicIntersection(const Ray ray, const Triangle triangles[], c
   __shared__ unsigned int triIds[8];
 
   float t;
-  rayTriangleIntersection(ray, triangles[i], t);
+  glm::fvec2 uv;
+  rayTriangleIntersection(ray, triangles[i], t, uv);
 
   ts[tid] = t;
   triIds[tid] = tid;
@@ -140,6 +155,7 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
 {
   float tMin = BIGT;
   int minTriIdx = -1;
+  glm::fvec2 minUV;
   RaycastResult result;
 
   float hitt = BIGT;
@@ -162,15 +178,17 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
     if (currentNode.rightIndex == -1)
     {
       float t = 0;
+      glm::fvec2 uv;
 
       for (int i = currentNode.startTri; i < currentNode.startTri + currentNode.nTri; ++i)
        {
-        if (rayTriangleIntersection(ray, triangles[i], t))
+        if (rayTriangleIntersection(ray, triangles[i], t, uv))
         {
           if(t < tMin)
           {
             tMin = t;
             minTriIdx = i;
+            minUV = uv;
           }
         }
        }
@@ -184,13 +202,13 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
       bool leftHit = bboxIntersect(leftChild.bbox, ray, leftt);
       bool rightHit = bboxIntersect(rightChild.bbox, ray, rightt);
 
-      if (leftHit)
+      if (leftHit && leftt < tMin)
       {
         stack[ptr] = currentNodeIdx + 1;
         ++ptr;
       }
 
-      if (rightHit)
+      if (rightHit && rightt < tMin)
       {
         stack[ptr] = currentNode.rightIndex;
         ++ptr;
@@ -203,12 +221,11 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
     return result;
 
   glm::fvec3 hitPoint = ray.origin + glm::normalize(ray.direction) * tMin;
-  glm::fvec2 uv(0.f);
 
   result.point = hitPoint;
   result.t = tMin;
   result.triangleIdx = minTriIdx;
-  result.uv = uv;
+  result.uv = minUV;
 
   return result;
 }
@@ -231,12 +248,13 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
   {
     light.sample(pdf, lightSamplePoint, curandState1, curandState2);
 
-    glm::fvec3 shadowRayOrigin = result.point + hitTriangle.normal() * EPSILON;
+    const glm::fvec3 interpolatedNormal = hitTriangle.normal(result.uv);
+    glm::fvec3 shadowRayOrigin = result.point + interpolatedNormal * EPSILON;
     glm::fvec3 shadowRayDir = lightSamplePoint - shadowRayOrigin;
 
     float maxT = glm::length(shadowRayDir); // Distance to the light
 
-    shadowRayDir = glm::normalize(shadowRayDir);
+    shadowRayDir = shadowRayDir / maxT;
 
     Ray shadowRay(shadowRayOrigin, glm::normalize(shadowRayDir));
 
@@ -245,7 +263,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
     if ((shadowResult && shadowResult.t >= maxT - EPSILON) || !shadowResult)
     {
 
-      const float cosOmega = glm::clamp(glm::dot(shadowRayDir, hitTriangle.normal()), 0.f, 1.f);
+      const float cosOmega = glm::clamp(glm::dot(shadowRayDir, interpolatedNormal), 0.f, 1.f);
       const float cosL = glm::clamp(glm::dot(-shadowRayDir, light.getNormal()), 0.f, 1.f);
 
       brightness += 1.0f / (glm::dot(shadowRayDir, shadowRayDir) * pdf) * light.getEmission() * cosOmega * cosL;
@@ -269,13 +287,11 @@ __device__ glm::fvec3 rayTrace(\
     const Light light, \
     curandState_t& curandState1, \
     curandState_t& curandState2, \
-    const int reflections)
+    int secondaryLeft)
 {
-
-  int secondaryLeft = reflections;
   glm::fvec3 color(0.f);
 
-  // Primary
+  // Primary ray
   RaycastResult result = rayCast(ray, bvh, triangles, nTriangles);
 
   if (!result)
@@ -287,57 +303,88 @@ __device__ glm::fvec3 rayTrace(\
   color = material->colorAmbient * 0.25f; // Ambient lightning
   color += material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
 
+  // For reflection rays
+  Ray reflRay = ray;;
+  RaycastResult reflResult = result;
+  const Material* reflMaterial = &materials[triangleMaterialIds[result.triangleIdx]];
+  const Triangle* reflHitTriangle = &triangles[result.triangleIdx];
   glm::fvec3 filterSpecular = material->colorSpecular;
+
+  // For refraction rays
+  Ray transOutRay = ray;
+  RaycastResult transOutResult = result;
+  const Material* transOutMaterial = &materials[triangleMaterialIds[result.triangleIdx]];
+  const Triangle* transOutHitTriangle = &triangles[result.triangleIdx];
   glm::fvec3 filterTransparent = material->colorTransparent;
+
 
   // Secondary or reflections
   while (secondaryLeft)
   {
-    /*if (glm::length(filterSpecular) > 0.0f)
+    const glm::fvec3 interpolatedNormalIn = transOutHitTriangle->normal(transOutResult.uv);
+
+    // Transmittance and reflection according to fresnel
+    const float cosi = fabsf(glm::dot(reflRay.direction, interpolatedNormalIn));
+    const float sin2t = (AIR_INDEX / material->refrIdx) * (AIR_INDEX / material->refrIdx) * (1 - cosi * cosi);
+    const float cost = sqrt(1 - sin2t);
+
+    float Rp = (AIR_INDEX * cosi - material->refrIdx * cost) / (AIR_INDEX * cosi + material->refrIdx * cost);
+    Rp = Rp * Rp;
+
+    float Rs = (material->refrIdx * cosi - AIR_INDEX * cost) / (material->refrIdx * cosi + AIR_INDEX * cost);
+    Rs = Rs * Rs;
+
+    const float R = (Rp + Rs) * 0.5f;
+    const float T = 1 - R;
+
+    if (glm::length(filterSpecular) > 0.0f)
     {
-      glm::fvec3 reflRayOrigin = result.point + hitTriangle->normal() * EPSILON;
-      glm::fvec3 reflRayDir = reflectionDirection(hitTriangle->normal(), ray.direction);
-      Ray reflRay = Ray(reflRayOrigin, reflRayDir);
-      RaycastResult reflResult = rayCast(reflRay, bvh, triangles, nTriangles);
+      glm::fvec3 reflRayOrigin = reflResult.point + interpolatedNormalIn * EPSILON;
+      glm::fvec3 reflRayDir = reflectionDirection(interpolatedNormalIn, reflRay.direction);
+      reflRay = Ray(reflRayOrigin, reflRayDir);
+      reflResult = rayCast(reflRay, bvh, triangles, nTriangles);
 
       if (!reflResult)
         break;
 
-      hitTriangle = &triangles[result.triangleIdx];
-      material = &materials[triangleMaterialIds[result.triangleIdx]];
+      reflHitTriangle = &triangles[result.triangleIdx];
+      reflMaterial = &materials[triangleMaterialIds[reflResult.triangleIdx]];
 
-      color += filterSpecular * material->colorAmbient * 0.25f; // Ambient lightning
-      color += filterSpecular * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
+      color += R * filterSpecular * reflMaterial->colorAmbient * 0.25f; // Ambient lightning
+      color += R * filterSpecular * reflMaterial->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, reflResult, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
 
-      filterSpecular = material->colorSpecular;
-    }*/
+      filterSpecular = reflMaterial->colorSpecular;
+    }
 
-    if (glm::length(filterTransparent) > 0.0f)
+    if (glm::length(filterTransparent) > 0.0f && transOutResult.triangleIdx != -1)
     {
-      glm::fvec3 transRayOrigin = result.point - hitTriangle->normal() * EPSILON;
-      glm::fvec3 transRayDir = refractionDirection(hitTriangle->normal(), ray.direction, 1.f, material->refrIdx);
+      const glm::fvec3 transInRayOrigin = transOutResult.point - interpolatedNormalIn * EPSILON;
+      const glm::fvec3 transInRayDir = refractionDirection(interpolatedNormalIn, transOutRay.direction, AIR_INDEX, transOutMaterial->refrIdx);
 
-      Ray transRay = Ray(transRayOrigin, transRayDir);
-      RaycastResult transResult = rayCast(transRay, bvh, triangles, nTriangles);
+      const Ray transInRay = Ray(transInRayOrigin, transInRayDir);
+      const RaycastResult transInResult = rayCast(transInRay, bvh, triangles, nTriangles);
 
-      if (!transResult)
+      if (!transInResult) // infinite volume?
         break;
 
-      const Triangle& transHitTriangle = triangles[transResult.triangleIdx];
-      transRayOrigin = transResult.point + transHitTriangle.normal() * EPSILON;
-      transRayDir = refractionDirection(hitTriangle->normal(), ray.direction, material->refrIdx, 1.f);
+      const Triangle& transInTriangle = triangles[transInResult.triangleIdx];
+      const glm::fvec3 interpolatedNormalOut = transInTriangle.normal(transInResult.uv);
+      const glm::fvec3 transOutRayOrigin = transInResult.point + interpolatedNormalOut * EPSILON;
+      const glm::fvec3 transOutRayDir = refractionDirection(interpolatedNormalOut, transInRay.direction, material->refrIdx, AIR_INDEX);
 
-      transRay = Ray(transRayOrigin, transRayDir);
-      transResult = rayCast(transRay, bvh, triangles, nTriangles);
+      transOutRay = Ray(transOutRayOrigin, transOutRayDir);
+      transOutResult = rayCast(transOutRay, bvh, triangles, nTriangles);
 
-      const Triangle& transOutHitTriangle = triangles[result.triangleIdx];
-      const Material& transMaterial = materials[triangleMaterialIds[transResult.triangleIdx]];
+      if (!transOutResult)
+        break;
 
-      color += filterTransparent * transMaterial.colorAmbient * 0.25f; // Ambient lightning
-//      color += filterTransparent * material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
-      color += filterTransparent * transMaterial.colorDiffuse / glm::pi<float>() * glm::fvec3(0.5f, 0.5f, 0.5f);
+      transOutHitTriangle = &triangles[transOutResult.triangleIdx];
+      transOutMaterial = &materials[triangleMaterialIds[transOutResult.triangleIdx]];
 
-      filterTransparent = material->colorTransparent;
+      color += T * filterTransparent * transOutMaterial->colorAmbient * 0.25f; // Ambient lightning
+      color += T * filterTransparent * transOutMaterial->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, transOutResult, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
+
+      filterTransparent = transOutMaterial->colorTransparent;
     }
 
     --secondaryLeft;

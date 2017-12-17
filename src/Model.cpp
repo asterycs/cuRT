@@ -347,6 +347,29 @@ void Model::sortOnMorton()
   }
 }
 
+bool isBalanced(const Node *node, const Node* root, int* height)
+{
+  int lh = 0, rh = 0;
+
+  int l = 0, r = 0;
+
+  if(node->rightIndex == -1)
+  {
+    *height = 1;
+     return 1;
+  }
+
+  l = isBalanced(node + 1, root, &lh);
+  r = isBalanced(root + node->rightIndex, root, &rh);
+
+  *height = (lh > rh ? lh : rh) + 1;
+
+  if((lh - rh >= 2) || (rh - lh >= 2))
+    return 0;
+
+  else return l && r;
+}
+
 void Model::createBVH()
 {
   // This is a simple top down approach that places the nodes in an array.

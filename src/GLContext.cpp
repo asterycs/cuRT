@@ -58,7 +58,7 @@ GLContext::GLContext() :
   int width, height;
   GL_CHECK(glfwGetFramebufferSize(window, &width, &height));
   GL_CHECK(glViewport(0, 0, width, height));
-  glfwSwapInterval(0);
+  glfwSwapInterval(1);
   glfwSwapBuffers(window);
 
   glfwSetMouseButtonCallback(window,
@@ -433,12 +433,12 @@ glm::vec2 GLContext::getCursorPos()
 
 bool GLContext::isKeyPressed(const int glfwKey, const int modifiers) const
 {
-  int ctrl  = glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) || glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) << 1;
-  int shift = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) << 0;
-  int super = glfwGetKey(window, GLFW_KEY_LEFT_SUPER) || glfwGetKey(window, GLFW_KEY_RIGHT_SUPER) << 3;
-  int alt   = glfwGetKey(window, GLFW_KEY_LEFT_ALT) || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) << 2;
+  const int ctrl  = glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) || glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) << 1;
+  const int shift = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) << 0;
+  const int super = glfwGetKey(window, GLFW_KEY_LEFT_SUPER) || glfwGetKey(window, GLFW_KEY_RIGHT_SUPER) << 3;
+  const int alt   = glfwGetKey(window, GLFW_KEY_LEFT_ALT) || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) << 2;
 
-  int pressedMods = shift | ctrl | alt | super;
+  const int pressedMods = shift | ctrl | alt | super;
 
   if (modifiers == pressedMods)
     return glfwGetKey(window, glfwKey);

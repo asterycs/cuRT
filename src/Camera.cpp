@@ -10,8 +10,8 @@ CUDA_HOST_DEVICE Camera::Camera() :
   fov(glm::quarter_pi<float>()),
   near(0.001f),
   far(10.f),
-  moveSpeed(0.25f),
-  mouseSpeed(0.01f),
+  moveSpeed(0.5f),
+  mouseSpeed(0.1f),
   position(0.f, 0.f, 0.f),
   hAngle(0.0f),
   vAngle(0.0f)
@@ -59,10 +59,10 @@ CUDA_HOST_DEVICE const glm::fvec3 Camera::getUp() const
   return glm::normalize(glm::cross(getForward(), getLeft()));
 }
 
-CUDA_HOST_DEVICE void Camera::rotate(const glm::fvec2& r, const float /*dTime*/)
+CUDA_HOST_DEVICE void Camera::rotate(const glm::fvec2& r, const float dTime)
 {
-  hAngle += r.y * mouseSpeed;
-  vAngle += r.x * mouseSpeed;
+  hAngle += r.y * mouseSpeed * dTime;
+  vAngle += r.x * mouseSpeed * dTime;
 }
 
 CUDA_HOST_DEVICE void Camera::translate(const glm::fvec2& t, const float dTime)
