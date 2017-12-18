@@ -62,16 +62,15 @@ void Model::initialize(const aiScene *scene)
         mat.Get(AI_MATKEY_COLOR_EMISSIVE,    aiEmission);
         mat.Get(AI_MATKEY_SHININESS,         aiShininess);
         mat.Get(AI_MATKEY_COLOR_TRANSPARENT, aiTransparent);
-        mat.Get(AI_MATKEY_COLOR_TRANSPARENT, aiTransparent);
 
         mat.Get(AI_MATKEY_REFRACTI,          material.refrIdx);
 
-        material.colorAmbient    = ai2glm3f(aiAmbient);
-        material.colorDiffuse    = ai2glm3f(aiDiffuse);
-        material.colorEmission   = ai2glm3f(aiEmission);
-        material.colorSpecular   = ai2glm3f(aiSpecular);
-        material.colorShininess  = ai2glm3f(aiShininess);
-        material.colorTransparent= ai2glm3f(aiTransparent);
+        material.colorAmbient     = ai2glm3f(aiAmbient);
+        material.colorDiffuse     = ai2glm3f(aiDiffuse);
+        material.colorEmission    = ai2glm3f(aiEmission);
+        material.colorSpecular    = ai2glm3f(aiSpecular);
+        material.colorShininess   = ai2glm3f(aiShininess);
+        material.colorTransparent = glm::fvec3(1.f) - ai2glm3f(aiTransparent);
 
         std::vector<unsigned int> vertexIds(mesh->mNumFaces * 3);
         std::iota(vertexIds.begin(), vertexIds.end(), triangleOffset * 3);

@@ -15,6 +15,7 @@ public:
   CudaRenderer();
   ~CudaRenderer();
 
+  std::vector<glm::fvec3> debugRay(const glm::ivec2 pixelPos, const glm::ivec2 size, const Camera& camera, GLModel& model, GLLight& light);
   void renderToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light);
   void resize(const glm::ivec2& size);
 

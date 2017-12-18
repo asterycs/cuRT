@@ -48,6 +48,7 @@ private:
     App();
     ~App();
 
+    std::vector<glm::fvec3> debugPoints;
     bool mousePressed;
     glm::dvec2 mousePrevPos;
     ActiveRenderer activeRenderer;

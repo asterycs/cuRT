@@ -94,6 +94,7 @@ GLContext::GLContext() :
   canvasShader.loadShader("shaders/canvas/vshader.glsl", "shaders/canvas/fshader.glsl");
   textShader.loadShader("shaders/text/vshader.glsl", "shaders/text/fshader.glsl");
   depthShader.loadShader("shaders/depth/vshader.glsl", "shaders/depth/fshader.glsl");
+  lineShader.loadShader("shaders/line/vshader.glsl", "shaders/line/fshader.glsl");
   
   std::cout << "OpenGL context initialized" << std::endl;
 
@@ -218,7 +219,8 @@ bool GLContext::shadersLoaded() const
  && lightShader.isLoaded() \
  && canvasShader.isLoaded() \
  && depthShader.isLoaded() \
- && textShader.isLoaded())
+ && textShader.isLoaded() \
+ && lineShader.isLoaded())
     return true;
   else
     return false;
@@ -374,14 +376,7 @@ void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLi
     modelShader.updateUniform3fv("material.colorDiffuse", material.colorDiffuse);
     //modelShader.updateUniform3fv("material.colorSpecular", material.colorSpecular);
 
-    GLuint elementbuffer;
-    glGenBuffers(1, &elementbuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshDescriptor.vertexIds.size() * sizeof(unsigned int), meshDescriptor.vertexIds.data(), GL_STATIC_DRAW);
-
-    GL_CHECK(glDrawElements(GL_TRIANGLES, meshDescriptor.vertexIds.size(), GL_UNSIGNED_INT, 0));
-
-    glDeleteBuffers(1, &elementbuffer);
+    GL_CHECK(glDrawElements(GL_TRIANGLES, meshDescriptor.vertexIds.size(), GL_UNSIGNED_INT, meshDescriptor.vertexIds.data()));
   }
 
   GL_CHECK(glBindVertexArray(0));
@@ -423,12 +418,12 @@ void GLContext::drawLight(const GLLight& light, const Camera& camera)
   GL_CHECK(glDisable(GL_CULL_FACE));
 }
 
-glm::vec2 GLContext::getCursorPos()
+glm::ivec2 GLContext::getCursorPos()
 {
   double x, y;
   glfwGetCursorPos(window, &x, &y);
 
-  return glm::vec2(x, y);
+  return glm::ivec2(x, y);
 }
 
 bool GLContext::isKeyPressed(const int glfwKey, const int modifiers) const
@@ -450,6 +445,45 @@ void GLContext::resize(const glm::ivec2& newSize)
 {
   GL_CHECK(glViewport(0,0,newSize.x, newSize.y));
   this->size = newSize;
+}
+
+void GLContext::draw(const std::vector<glm::fvec3>& points, const Camera& camera)
+{
+  if (!shadersLoaded() || points.size() == 0)
+     return;
+
+  lineShader.bind();
+
+  GLuint vao, vbo;
+  GL_CHECK(glGenVertexArrays(1, &vao));
+  GL_CHECK(glBindVertexArray(vao));
+
+  GL_CHECK(glGenBuffers(1, &vbo));
+  GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vbo));
+  GL_CHECK(glBufferData(GL_ARRAY_BUFFER, sizeof(glm::fvec3) * points.size(), points.data(), GL_STATIC_DRAW));
+
+  GLint posID = lineShader.getAttribLocation("position");
+
+  GL_CHECK(glVertexAttribPointer(posID, 3, GL_FLOAT, GL_FALSE, 0, 0));
+  GL_CHECK(glEnableVertexAttribArray(posID));
+
+  lineShader.updateUniformMat4f("MVP", camera.getMVP(size));
+
+  std::vector<unsigned int> vertexIds(2 * (points.size() - 1));
+
+  for (std::size_t i = 1; i < vertexIds.size() - 1; ++i)
+    vertexIds[i] = (i + 1) / 2;
+
+  vertexIds[0] = 0;
+  vertexIds.back() = points.size() - 1;
+
+  for (auto& i : vertexIds)
+    std::cout << i << " ";
+
+  std::cout << std::endl;
+
+  GL_CHECK(glDrawElements(GL_LINES, points.size(), GL_UNSIGNED_INT, vertexIds.data()));
+  GL_CHECK(glDeleteVertexArrays(1, &vao));
 }
 
 void GLContext::draw(const GLCanvas& canvas)

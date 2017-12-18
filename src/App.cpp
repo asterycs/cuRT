@@ -12,6 +12,7 @@
 #include "nfd.h"
 
 App::App() :
+    debugPoints(),
     mousePressed(false),
     mousePrevPos(glcontext.getCursorPos()),
     activeRenderer(ActiveRenderer::GL),
@@ -61,6 +62,7 @@ void App::MainLoop()
     switch (activeRenderer)
     {
     case ActiveRenderer::GL:
+      glcontext.draw(debugPoints, camera);
       glcontext.draw(glmodel, gllight, camera);
       break;
 #ifdef ENABLE_CUDA
@@ -185,6 +187,7 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
   else if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
   {
     activeRenderer = static_cast<App::ActiveRenderer>((activeRenderer + 1) % 2);
+    debugPoints.clear();
   }
   else if (key == GLFW_KEY_O && action == GLFW_PRESS)
   {
@@ -209,6 +212,10 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
       loadSceneFile(outPath);
       free(outPath);
     }
+  }else if (key == GLFW_KEY_D && action == GLFW_PRESS && (modifiers & GLFW_MOD_CONTROL))
+  {
+    const glm::ivec2 pos = glcontext.getCursorPos();
+    debugPoints = cudaRenderer.debugRay(pos, glcanvas.getSize(), camera, glmodel, gllight);
   }
 
 }

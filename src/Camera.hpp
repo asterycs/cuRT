@@ -25,6 +25,7 @@ public:
   CUDA_HOST_DEVICE void decreaseFOV();
   
   CUDA_HOST_DEVICE glm::fvec2 normalizedImageCoordinateFromPixelCoordinate(const glm::ivec2& pixel, const glm::ivec2& size) const;
+  CUDA_HOST_DEVICE glm::fvec3 worldPositionFromNormalizedImageCoordinate(const glm::fvec2& point, const float aspectRatio) const;
 
   CUDA_HOST_DEVICE const glm::fmat4 getMVP(const glm::ivec2& size) const;
   CUDA_HOST_DEVICE const glm::fmat4 getP(const glm::ivec2& size) const;

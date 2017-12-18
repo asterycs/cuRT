@@ -29,6 +29,7 @@ public:
   
   void draw(const GLModel& scene, const GLLight& light, const Camera& mvp);
   void draw(const GLCanvas& canvas);
+  void draw(const std::vector<glm::fvec3>& points, const Camera& camera);
   void resize(const glm::ivec2& newSize);
   bool shadersLoaded() const;
   
@@ -42,7 +43,7 @@ public:
   
   float getDTime();
   std::string getFPS();
-  glm::vec2 getCursorPos();
+  glm::ivec2 getCursorPos();
   bool isKeyPressed(const int glfwKey, const int modifiers) const;
   
   float getTime() const;
@@ -66,6 +67,7 @@ private:
   GLShader canvasShader;
   GLShader textShader;
   GLShader depthShader;
+  GLShader lineShader;
   GLFWwindow* window;
 
   glm::ivec2 size;
