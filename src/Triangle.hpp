@@ -51,7 +51,7 @@ struct Triangle {
 	}
 
   CUDA_FUNCTION glm::vec3 normal(const glm::fvec2& uv) const {
-    return (1 - uv.x - uv.y) * vertices[0].n + uv.x * vertices[1].n + uv.y * vertices[2].n;
+    return glm::normalize((1 - uv.x - uv.y) * vertices[0].n + uv.x * vertices[1].n + uv.y * vertices[2].n);
   }
 };
 

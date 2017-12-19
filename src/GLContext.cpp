@@ -469,20 +469,7 @@ void GLContext::draw(const std::vector<glm::fvec3>& points, const Camera& camera
 
   lineShader.updateUniformMat4f("MVP", camera.getMVP(size));
 
-  std::vector<unsigned int> vertexIds(2 * (points.size() - 1));
-
-  for (std::size_t i = 1; i < vertexIds.size() - 1; ++i)
-    vertexIds[i] = (i + 1) / 2;
-
-  vertexIds[0] = 0;
-  vertexIds.back() = points.size() - 1;
-
-  for (auto& i : vertexIds)
-    std::cout << i << " ";
-
-  std::cout << std::endl;
-
-  GL_CHECK(glDrawElements(GL_LINES, points.size(), GL_UNSIGNED_INT, vertexIds.data()));
+  GL_CHECK(glDrawArrays(GL_LINES, 0, points.size() * 2));
   GL_CHECK(glDeleteVertexArrays(1, &vao));
 }
 
