@@ -53,23 +53,21 @@ void Model::initialize(const aiScene *scene)
         aiColor3D aiDiffuse    (0.f,0.f,0.f);
         aiColor3D aiSpecular   (0.f,0.f,0.f);
         aiColor3D aiEmission   (0.f,0.f,0.f);
-        aiColor3D aiShininess  (0.f,0.f,0.f);
         aiColor3D aiTransparent(0.f,0.f,0.f);
 
         mat.Get(AI_MATKEY_COLOR_AMBIENT,     aiAmbient);
         mat.Get(AI_MATKEY_COLOR_DIFFUSE,     aiDiffuse);
         mat.Get(AI_MATKEY_COLOR_SPECULAR,    aiSpecular);
         mat.Get(AI_MATKEY_COLOR_EMISSIVE,    aiEmission);
-        mat.Get(AI_MATKEY_SHININESS,         aiShininess);
         mat.Get(AI_MATKEY_COLOR_TRANSPARENT, aiTransparent);
 
         mat.Get(AI_MATKEY_REFRACTI,          material.refrIdx);
+        mat.Get(AI_MATKEY_SHININESS,         material.shininess);
 
         material.colorAmbient     = ai2glm3f(aiAmbient);
         material.colorDiffuse     = ai2glm3f(aiDiffuse);
         material.colorEmission    = ai2glm3f(aiEmission);
         material.colorSpecular    = ai2glm3f(aiSpecular);
-        material.colorShininess   = ai2glm3f(aiShininess);
         material.colorTransparent = glm::fvec3(1.f) - ai2glm3f(aiTransparent);
 
         std::vector<unsigned int> vertexIds(mesh->mNumFaces * 3);
@@ -378,8 +376,8 @@ void Model::createBVH()
 
   std::vector<Node> finishedNodes;
   std::vector<int> touchCount;
-  const unsigned int nTris = triangles.size();
-  const unsigned int nodecountAppr = std::pow(2.f, std::ceil(std::log2(nTris / static_cast<float>(MAX_TRIS_PER_LEAF))) + 1) - 1;
+  //const unsigned int nTris = triangles.size();
+  const unsigned int nodecountAppr = 0;//std::pow(2.f, std::ceil(std::log2(nTris / static_cast<float>(MAX_TRIS_PER_LEAF))) + 1) - 1;
   finishedNodes.reserve(nodecountAppr);
   touchCount.reserve(nodecountAppr);
 

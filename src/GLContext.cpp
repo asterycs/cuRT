@@ -309,6 +309,9 @@ void GLContext::drawShadowMap(const GLLight& light)
 
 void GLContext::updateShadowMap(const GLDrawable& model, const GLLight& light)
 {
+  if (!shadersLoaded() || model.getNTriangles() == 0)
+    return;
+
   GLuint frameBufferID = light.getShadowMap().getFrameBufferID();
 
   GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, frameBufferID));

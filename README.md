@@ -32,11 +32,14 @@ Select an .obj file to open by pressing O-key. Hit Enter to switch between CUDA 
 - Raytracer in CUDA
     - Area lights with soft shadows
     - Reflections
+    - Refractions
     - Simple BVH based on morton codes
 
 ### Planned improvements:
 - Better BVH
-- Refractions
 - Textures
+- More optimization
 
 ![Screenshot](screenshot.png?raw=true "Screenshot")
+
+Screenshot model downloaded from Morgan McGuire's Computer Graphics Archive https://casual-effects.com/data

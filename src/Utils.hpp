@@ -59,14 +59,14 @@ struct Material
   glm::fvec3 colorDiffuse;
   glm::fvec3 colorEmission;
   glm::fvec3 colorSpecular;
-  glm::fvec3 colorShininess;
   glm::fvec3 colorTransparent;
 
   float refrIdx;
+  float shininess;
 
   // TextureIndex?
 
-  Material() : colorAmbient(0.0f), colorDiffuse(0.0f), colorEmission(0.0f), colorSpecular(0.0f), colorShininess(0.0f) {};
+  Material() : colorAmbient(0.0f), colorDiffuse(0.0f), colorEmission(0.0f), colorSpecular(0.0f), shininess(0.0f) {};
 
 };
 
@@ -76,8 +76,8 @@ struct AABB
   glm::fvec3 max;
   glm::fvec3 min;
 
-  AABB(const glm::fvec3& a, const glm::fvec3& b) : max(glm::max(a, b)), min(glm::min(a, b)) { }
-  AABB() : max(0.f), min(0.f) { }
+  CUDA_FUNCTION AABB(const glm::fvec3& a, const glm::fvec3& b) : max(glm::max(a, b)), min(glm::min(a, b)) { }
+  CUDA_FUNCTION AABB() : max(0.f), min(0.f) { }
 };
 
 struct Node

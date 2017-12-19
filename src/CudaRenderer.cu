@@ -16,8 +16,8 @@
 #define BLOCKWIDTH 8
 #define EPSILON 0.00001f
 #define BIGT 99999.f
-#define SHADOWSAMPLING 32
-#define SECONDARY_RAYS 2
+#define SHADOWSAMPLING 256
+#define SECONDARY_RAYS 3
 #define AIR_INDEX 1.f
 
 __device__ bool bboxIntersect(const AABB& box, const Ray& ray, float& t)
@@ -90,7 +90,7 @@ __device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle
   if (a > -EPSILON && a < EPSILON)
     return false;
 
-  f = 1.f / a;
+  f = __fdividef(1.f, a);
   s = ray.origin - vertex0;
   u = f * glm::dot(s, h);
 
@@ -232,7 +232,7 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
 
 
 template<typename curandState>
-__device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, const RaycastResult& result, const Triangle* triangles, const unsigned int nTriangles, curandState& curandState1, curandState& curandState2, const unsigned int supersampling)
+__device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, const RaycastResult& result, const Triangle* triangles, const unsigned int nTriangles, curandState& curandState1, curandState& curandState2)
 {
   glm::fvec3 brightness(0.f);
 
@@ -244,7 +244,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
   glm::fvec3 lightSamplePoint;
   float pdf;
 
-  for (unsigned int i = 0; i < supersampling; ++i)
+  for (unsigned int i = 0; i < SHADOWSAMPLING; ++i)
   {
     light.sample(pdf, lightSamplePoint, curandState1, curandState2);
 
@@ -262,15 +262,15 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
 
     if ((shadowResult && shadowResult.t >= maxT - EPSILON) || !shadowResult)
     {
-      const float cosOmega = glm::clamp(glm::dot(shadowRayDirNormalized, interpolatedNormal), 0.f, 1.f);
-      const float cosL = glm::clamp(glm::dot(-shadowRayDirNormalized, light.getNormal()), 0.f, 1.f);
+      const float cosOmega = __saturatef(glm::dot(shadowRayDirNormalized, interpolatedNormal));
+      const float cosL = __saturatef(glm::dot(-shadowRayDirNormalized, light.getNormal()));
 
-      brightness += 1.0f / (maxT * maxT * pdf) * light.getEmission() * cosL * cosOmega;
+      brightness += __fdividef(1.f, (maxT * maxT * pdf)) * light.getEmission() * cosL * cosOmega;
 
     }
   }
 
-  brightness /= supersampling;
+  brightness /= SHADOWSAMPLING;
 
   return brightness;
 }
@@ -282,6 +282,13 @@ struct RaycastTask
   glm::fvec3 filter;
 };
 
+// Metaprogramming hack to compute stack size on compile time
+template<class T>
+__device__ inline constexpr T cpow(const T base, unsigned const exponent)
+{
+    return (exponent == 0) ? 1 : (base * cpow(base, exponent - 1));
+}
+
 __device__ glm::fvec3 rayTrace(\
     const Node* bvh, \
     const Ray& ray, \
@@ -292,10 +299,10 @@ __device__ glm::fvec3 rayTrace(\
     const unsigned int* triangleMaterialIds, \
     const Light light, \
     curandState_t& curandState1, \
-    curandState_t& curandState2, \
-    int secondaryLeft)
+    curandState_t& curandState2)
 {
-  RaycastTask stack[16];
+  const unsigned int stackSize = cpow(2, SECONDARY_RAYS);
+  RaycastTask stack[stackSize];
   glm::fvec3 color(0.f);
   int ptr = 2;
 
@@ -309,7 +316,7 @@ __device__ glm::fvec3 rayTrace(\
   const glm::fvec3 interpolatedNormal = hitTriangle->normal(result.uv);
 
   color = material->colorAmbient * 0.25f; // Ambient lightning
-  color += material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
+  color += material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2);
 
   if (SECONDARY_RAYS == 0)
     return color;
@@ -349,7 +356,7 @@ __device__ glm::fvec3 rayTrace(\
     const glm::fvec3 norm = tri->normal(res.uv);
 
     color += currentTask.filter * mat->colorAmbient * 0.25f;
-    const glm::fvec3 brightness = areaLightShading(light, bvh, res, triangles, nTriangles, curandState1, curandState2, SHADOWSAMPLING);
+    const glm::fvec3 brightness = areaLightShading(light, bvh, res, triangles, nTriangles, curandState1, curandState2);
     color += currentTask.filter * mat->colorDiffuse / glm::pi<float>() * brightness;
 
     if (currentTask.levelsLeft == 0)
@@ -368,7 +375,6 @@ __device__ glm::fvec3 rayTrace(\
     ++ptr;
 
 
-
     float idx1 = AIR_INDEX;
     float idx2 = AIR_INDEX;
 
@@ -382,7 +388,7 @@ __device__ glm::fvec3 rayTrace(\
 
     refrTask.outRay = Ray(transOrig, transDir);
     refrTask.levelsLeft = currentTask.levelsLeft - 1;
-    refrTask.filter = currentTask.filter * material->colorTransparent;
+    refrTask.filter = currentTask.filter * glm::sqrt(mat->colorTransparent);
     stack[ptr] = refrTask;
     ++ptr;
   }
@@ -508,8 +514,7 @@ cudaRender(\
       triangleMaterialIds, \
       light, \
       curandStateDevXPtr[x + canvasSize.x * y], \
-      curandStateDevYPtr[x + canvasSize.x * y], \
-      SECONDARY_RAYS);
+      curandStateDevYPtr[x + canvasSize.x * y]);
 
   writeToCanvas(x, y, canvas, canvasSize, color);
 
