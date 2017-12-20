@@ -32,6 +32,7 @@ endif(ENABLE_CUDA)
 find_package(X11 REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(OpenGL REQUIRED)
+find_package(Threads REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK2 REQUIRED gtk+-3.0)
@@ -55,12 +56,12 @@ ExternalProject_Add(assimp
     LOG_CONFIGURE 1
     LOG_BUILD 1
     LOG_INSTALL 1
-    INSTALL_DIR "${CMAKE_BINARY_DIR}/assimp"
+    INSTALL_DIR "${CMAKE_BINARY_DIR}/ext/assimp"
     CMAKE_ARGS
        "-DASSIMP_BUILD_TESTS=OFF"
        "-DASSIMP_BUILD_ASSIMP_TOOLS=OFF"
        "-DBUILD_SHARED_LIBS=OFF" # Build static
-       "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/assimp"
+       "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/ext/assimp"
        "-DCMAKE_BUILD_TYPE=Release"
        "-DCMAKE_CXX_FLAGS=-fPIC" "-DCMAKE_C_FLAGS=-fPIC"
        )
@@ -98,7 +99,7 @@ ExternalProject_Add(cxxopts
     LOG_INSTALL 1
     INSTALL_DIR "${CMAKE_BINARY_DIR}/ext/cxxopts"
     CMAKE_ARGS
-       "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/cxxopts"
+       "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/ext/cxxopts"
        "-DCMAKE_BUILD_TYPE=Release"
        "-DCXXOPTS_BUILD_EXAMPLES=OFF"
        "-DCXXOPTS_BUILD_TESTS=OFF"
@@ -115,7 +116,6 @@ ExternalProject_Add(
     GIT_PROGRESS 1
     UPDATE_DISCONNECTED 1
     UPDATE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
-    UPDATE_DISCONNECTED 1
     LOG_DOWNLOAD 1
     LOG_UPDATE 1
     LOG_CONFIGURE 1
@@ -197,6 +197,8 @@ set(LINK_LIBS
     ${X11_Xinerama_LIB}
     ${X11_Xrandr_LIB}
     ${X11_Xxf86vm_LIB}
+    ${CMAKE_DL_LIBS}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${ASSIMP_LIBRARIES}
     ${NATIVEFILEDIALOG_LIBRARIES}
     ${GTK2_LIBRARIES}

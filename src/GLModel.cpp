@@ -6,7 +6,11 @@
 
 #include <vector>
 
-GLModel::GLModel() : deviceBVH(nullptr)
+GLModel::GLModel()
+#ifdef ENABLE_CUDA
+:
+deviceBVH(nullptr)
+#endif
 {
 
 }

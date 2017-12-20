@@ -214,8 +214,10 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
     }
   }else if (key == GLFW_KEY_D && action == GLFW_PRESS && (modifiers & GLFW_MOD_CONTROL))
   {
+#ifdef ENABLE_CUDA
     const glm::ivec2 pos = glcontext.getCursorPos();
     debugPoints = cudaRenderer.debugRay(pos, glcanvas.getSize(), camera, glmodel, gllight);
+#endif    
   }
 
 }
