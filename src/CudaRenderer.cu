@@ -13,6 +13,7 @@
 #include "Utils.hpp"
 #include "Triangle.hpp"
 
+
 #define BLOCKWIDTH 8
 #define EPSILON 0.00001f
 #define BIGT 99999.f
@@ -79,26 +80,25 @@ __device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle
   const glm::vec3& vertex0 = triangle.vertices[0].p;
   const glm::vec3& vertex1 = triangle.vertices[1].p;
   const glm::vec3& vertex2 = triangle.vertices[2].p;
-  glm::vec3 edge1, edge2, h, s, q;
-  float a,f,u,v;
-  edge1 = vertex1 - vertex0;
-  edge2 = vertex2 - vertex0;
 
-  h = glm::cross(ray.direction, edge2);
-  a = glm::dot(edge1, h);
+  const glm::fvec3 edge1 = vertex1 - vertex0;
+  const glm::fvec3 edge2 = vertex2 - vertex0;
+
+  const glm::fvec3 h = glm::cross(ray.direction, edge2);
+  const float a = glm::dot(edge1, h);
 
   if (a > -EPSILON && a < EPSILON)
     return false;
 
-  f = __fdividef(1.f, a);
-  s = ray.origin - vertex0;
-  u = f * glm::dot(s, h);
+  const float f = __fdividef(1.f, a);
+  const glm::fvec3 s = ray.origin - vertex0;
+  const float u = f * glm::dot(s, h);
 
   if (u < 0.f || u > 1.0f)
     return false;
 
-  q = glm::cross(s, edge1);
-  v = f * glm::dot(ray.direction, q);
+  const glm::fvec3 q = glm::cross(s, edge1);
+  const float v = f * glm::dot(ray.direction, q);
 
   if (v < 0.0 || u + v > 1.0)
     return false;
@@ -298,7 +298,7 @@ __device__ inline constexpr unsigned int cpow(const unsigned int base, const uns
     return (exponent == 0) ? 1 : (base * cpow(base, exponent - 1));
 }
 
-template <bool debug>
+template <bool debug, typename curandStateType>
 __device__ glm::fvec3 rayTrace(\
     const Node* bvh, \
     const Ray& ray, \
@@ -308,8 +308,8 @@ __device__ glm::fvec3 rayTrace(\
     const Material* materials, \
     const unsigned int* triangleMaterialIds, \
     const Light light, \
-    curandState_t& curandState1, \
-    curandState_t& curandState2, \
+    curandStateType& curandState1, \
+    curandStateType& curandState2, \
     glm::fvec3* hitPoints = nullptr)
 {
   constexpr unsigned int stackSize = cpow(2, SECONDARY_RAYS);
@@ -420,7 +420,7 @@ __device__ glm::fvec3 rayTrace(\
   return color;
 }
 
-template<typename curandState>
+template <typename curandState>
 __global__ void initRand(const int seed, curandState* const curandStateDevPtr, const glm::ivec2 size)
 {
   const int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -434,7 +434,18 @@ __global__ void initRand(const int seed, curandState* const curandStateDevPtr, c
   curandStateDevPtr[x + y * size.x] = localState;
 }
 
-template<typename T>
+__global__ void initRand(unsigned long long* sobolDirectionVectors, unsigned long long* sobolScrambleConstants, curandStateScrambledSobol64* state, const int seed, const glm::ivec2 size)
+{
+  const int x = threadIdx.x + blockIdx.x * blockDim.x;
+  const int y = threadIdx.y + blockIdx.y * blockDim.y;
+  
+  if (x >= size.x || y >= size.y)
+    return;
+    
+  curand_init(&sobolDirectionVectors[x + size.x * y], sobolScrambleConstants[x + size.x * y], seed, &state[x + size.x * y]);
+}
+
+template <typename T>
 __device__ void writeToCanvas(const unsigned int x, const unsigned int y, const cudaSurfaceObject_t& surfaceObj, const glm::ivec2& canvasSize, T& data)
 {
   float4 out = make_float4(data.x, data.y, data.z, 1.f);
@@ -442,6 +453,7 @@ __device__ void writeToCanvas(const unsigned int x, const unsigned int y, const 
   return;
 }
 
+template <typename curandStateType>
 __global__ void
 cudaDebugRay(\
     const glm::ivec2 pixelPos, \
@@ -453,8 +465,8 @@ cudaDebugRay(\
     const Material* materials, \
     const unsigned int* triangleMaterialIds, \
     const Light light, \
-    curandState_t* curandStateDevXPtr, \
-    curandState_t* curandStateDevYPtr, \
+    curandStateType* curandStateDevXPtr, \
+    curandStateType* curandStateDevYPtr, \
     const Node* bvh)
 {
   const glm::fvec2 nic = camera.normalizedImageCoordinateFromPixelCoordinate(pixelPos, size);
@@ -477,6 +489,7 @@ cudaDebugRay(\
   return;
 }
 
+template <typename curandStateType>
 __global__ void
 __launch_bounds__(2 * BLOCKWIDTH * BLOCKWIDTH, 8)
 cudaRender(\
@@ -488,8 +501,8 @@ cudaRender(\
     const Material* materials, \
     const unsigned int* triangleMaterialIds, \
     const Light light, \
-    curandState_t* curandStateDevXPtr, \
-    curandState_t* curandStateDevYPtr, \
+    curandStateType* curandStateDevXPtr, \
+    curandStateType* curandStateDevYPtr, \
     const Node* bvh)
 {
   const int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -525,14 +538,34 @@ void CudaRenderer::resize(const glm::ivec2& size)
 {
   curandStateDevVecX.resize(size.x * size.y);
   curandStateDevVecY.resize(size.x * size.y);
-  curandState_t* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
-  curandState_t* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
+  curandStateScrambledSobol64* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
+  curandStateScrambledSobol64* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
 
   dim3 block(BLOCKWIDTH, BLOCKWIDTH);
   dim3 grid( (size.x + block.x - 1) / block.x, (size.y + block.y - 1) / block.y);
-  initRand<<<grid, block>>>(0, curandStateDevXRaw, size);
-  initRand<<<grid, block>>>(5, curandStateDevYRaw, size);
-  CUDA_CHECK(cudaDeviceSynchronize()); // Would need to wait anyway when initializing models etc.
+  
+  curandDirectionVectors64_t* hostDirectionVectors64;
+  unsigned long long int* hostScrambleConstants64;
+  
+  curandDirectionVectors64_t* devDirectionVectors64;
+  unsigned long long int* devScrambleConstants64;
+  
+  CUDA_CHECK(curandGetDirectionVectors64(&hostDirectionVectors64, CURAND_SCRAMBLED_DIRECTION_VECTORS_64_JOEKUO6));
+  CUDA_CHECK(curandGetScrambleConstants64(&hostScrambleConstants64));
+  
+  CUDA_CHECK(cudaMalloc((void **)&(devDirectionVectors64),             2 * size.x * size.y * 64 * sizeof(long long int)));
+  CUDA_CHECK(cudaMemcpy(devDirectionVectors64, hostDirectionVectors64, 2 * size.x * size.y * 64 * sizeof(long long int), cudaMemcpyHostToDevice));
+  
+  CUDA_CHECK(cudaMalloc((void **)&(devScrambleConstants64),              2 * size.x * size.y * sizeof(long long int)));
+  CUDA_CHECK(cudaMemcpy(devScrambleConstants64, hostScrambleConstants64, 2 * size.x * size.y * sizeof(long long int), cudaMemcpyHostToDevice));
+  
+  initRand<<<grid, block>>>(devDirectionVectors64, devScrambleConstants64, curandStateDevXRaw, 1111, size);
+  initRand<<<grid, block>>>(devDirectionVectors64 + size.x * size.y, devScrambleConstants64 + size.x * size.y, curandStateDevYRaw, 5555, size);
+  
+  CUDA_CHECK(cudaFree(devDirectionVectors64));
+  CUDA_CHECK(cudaFree(devScrambleConstants64));
+  
+  CUDA_CHECK(cudaDeviceSynchronize());
 }
 
 
@@ -567,8 +600,8 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
 
   const glm::ivec2& canvasSize = canvas.getSize();
 
-  curandState_t* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
-  curandState_t* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
+  auto* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
+  auto* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
 
   auto surfaceObj = canvas.getCudaMappedSurfaceObject();
   Triangle* devTriangles = model.getMappedCudaTrianglePtr();
@@ -601,8 +634,8 @@ std::vector<glm::fvec3> CudaRenderer::debugRay(const glm::ivec2 pixelPos, const 
   if (model.getNTriangles() == 0)
     return std::vector<glm::fvec3>();
 
-  curandState_t* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
-  curandState_t* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
+  auto* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
+  auto* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
 
   Triangle* devTriangles = model.getMappedCudaTrianglePtr();
 
