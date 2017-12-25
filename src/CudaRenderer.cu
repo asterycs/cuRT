@@ -159,7 +159,7 @@ enum HitType
 
 template <HitType hitType>
 __device__
-RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles, const unsigned int nTriangles)
+RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles)
 {
   float tMin = BIGT;
   int minTriIdx = -1;
@@ -269,7 +269,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
 
     const Ray shadowRay(shadowRayOrigin, shadowRayDirNormalized);
 
-    const  RaycastResult shadowResult = rayCast<HitType::ANY>(shadowRay, bvh, triangles, nTriangles);
+    const  RaycastResult shadowResult = rayCast<HitType::ANY>(shadowRay, bvh, triangles);
 
     if ((shadowResult && shadowResult.t >= maxT - EPSILON) || !shadowResult)
     {
@@ -293,13 +293,12 @@ struct RaycastTask
   glm::fvec3 filter;
 };
 
-// Metaprogramming hack to compute stack size on compile time
-template<class T>
-__device__ inline constexpr T cpow(const T base, unsigned const exponent)
+__device__ inline constexpr unsigned int cpow(const unsigned int base, const unsigned int exponent)
 {
     return (exponent == 0) ? 1 : (base * cpow(base, exponent - 1));
 }
 
+template <bool debug>
 __device__ glm::fvec3 rayTrace(\
     const Node* bvh, \
     const Ray& ray, \
@@ -310,18 +309,26 @@ __device__ glm::fvec3 rayTrace(\
     const unsigned int* triangleMaterialIds, \
     const Light light, \
     curandState_t& curandState1, \
-    curandState_t& curandState2)
+    curandState_t& curandState2, \
+    glm::fvec3* hitPoints = nullptr)
 {
-  const unsigned int stackSize = cpow(2, SECONDARY_RAYS);
+  constexpr unsigned int stackSize = cpow(2, SECONDARY_RAYS);
   RaycastTask stack[stackSize];
   glm::fvec3 color(0.f);
   int ptr = 2;
+  unsigned int posPtr = 0;
 
   // Primary ray
-  RaycastResult result = rayCast<HitType::CLOSEST>(ray, bvh, triangles, nTriangles);
+  RaycastResult result = rayCast<HitType::CLOSEST>(ray, bvh, triangles);
   if (!result)
     return color;
 
+  if (debug)
+  {
+    hitPoints[posPtr++] = ray.origin;
+    hitPoints[posPtr++] = result.point;
+  }
+  
   const Triangle* hitTriangle = &triangles[result.triangleIdx];
   const Material* material = &materials[triangleMaterialIds[result.triangleIdx]];
   const glm::fvec3 interpolatedNormal = hitTriangle->normal(result.uv);
@@ -357,11 +364,17 @@ __device__ glm::fvec3 rayTrace(\
     RaycastTask currentTask = stack[ptr];
 
     // Primary ray
-    RaycastResult res = rayCast<HitType::CLOSEST>(currentTask.outRay, bvh, triangles, nTriangles);
+    RaycastResult res = rayCast<HitType::CLOSEST>(currentTask.outRay, bvh, triangles);
 
     if (!res)
       continue;
 
+    if (debug)
+    {
+      hitPoints[posPtr++] = currentTask.outRay.origin;
+      hitPoints[posPtr++] = res.point;
+    }
+    
     const Triangle* tri = &triangles[res.triangleIdx];
     const Material* mat = &materials[triangleMaterialIds[res.triangleIdx]];
     const glm::fvec3 norm = tri->normal(res.uv);
@@ -445,45 +458,21 @@ cudaDebugRay(\
     const Node* bvh)
 {
   const glm::fvec2 nic = camera.normalizedImageCoordinateFromPixelCoordinate(pixelPos, size);
-
   const float ar = (float) size.x / size.y;
-
   const Ray ray = camera.generateRay(nic, ar);
 
-  const RaycastResult result = rayCast<HitType::CLOSEST>(ray, bvh, triangles, nTriangles);
-
-  if (!result)
-    return;
-
-  const Triangle* hitTriangle = &triangles[result.triangleIdx];
-  const glm::fvec3 interpolatedNormalIn = hitTriangle->normal(result.uv);
-  const glm::fvec3 reflRayOrigin = result.point + interpolatedNormalIn * EPSILON;
-  const glm::fvec3 reflRayDir = reflectionDirection(interpolatedNormalIn, ray.direction);
-  const Ray reflRay = Ray(reflRayOrigin, reflRayDir);
-  const RaycastResult reflResult = rayCast<HitType::CLOSEST>(reflRay, bvh, triangles, nTriangles);
-
-  if (!reflResult)
-    return;
-
-  const Triangle* reflTriangle = &triangles[reflResult.triangleIdx];
-  const glm::fvec3 interpolatedNormalRefl = reflTriangle->normal(reflResult.uv);
-  const glm::fvec3 interpolatedNormal = reflTriangle->normal(reflResult.uv);
-  const glm::fvec3 shadowRayOrigin = reflResult.point + interpolatedNormal * EPSILON;
-  const glm::fvec3 shadowRayDir = light.getPosition() - shadowRayOrigin;
-
-  const float maxT = glm::length(shadowRayDir); // Distance to the light
-
-  const Ray shadowRay(shadowRayOrigin, shadowRayDir / maxT);
-  const RaycastResult shadowResult = rayCast<HitType::CLOSEST>(shadowRay, bvh, triangles, nTriangles);
-
-  const glm::fvec4 p = glm::inverse(camera.getMVP(size)) * glm::fvec4(nic, 0.f, 1.f);
-
-  devPosPtr[0] = glm::fvec3(p / p.w);
-  devPosPtr[1] = result.point;
-  devPosPtr[2] = result.point;
-  devPosPtr[3] = reflResult.point;
-  devPosPtr[4] = shadowRayOrigin;
-  devPosPtr[5] = shadowResult.point;
+  (void) rayTrace<false>(\
+      bvh,
+      ray, \
+      triangles, \
+      nTriangles, \
+      camera, \
+      materials, \
+      triangleMaterialIds, \
+      light, \
+      curandStateDevXPtr[pixelPos.x + size.x * pixelPos.y], \
+      curandStateDevYPtr[pixelPos.x + size.x * pixelPos.y], \
+      devPosPtr);
 
   return;
 }
@@ -515,7 +504,7 @@ cudaRender(\
 
   Ray ray = camera.generateRay(nic, ar);
 
-  glm::fvec3 color = rayTrace(\
+  glm::fvec3 color = rayTrace<false>(\
       bvh,
       ray, \
       triangles, \
