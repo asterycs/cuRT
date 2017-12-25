@@ -151,7 +151,15 @@ __global__ void dynamicIntersection(const Ray ray, const Triangle triangles[], c
   }
 }
 
-__device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles, const unsigned int nTriangles)
+enum HitType
+{
+    ANY,
+    CLOSEST
+};
+
+template <HitType hitType>
+__device__
+RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles, const unsigned int nTriangles)
 {
   float tMin = BIGT;
   int minTriIdx = -1;
@@ -189,6 +197,9 @@ __device__ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle
             tMin = t;
             minTriIdx = i;
             minUV = uv;
+            
+            if (hitType == HitType::ANY)
+              break;
           }
         }
        }
@@ -258,7 +269,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
 
     const Ray shadowRay(shadowRayOrigin, shadowRayDirNormalized);
 
-    const  RaycastResult shadowResult = rayCast(shadowRay, bvh, triangles, nTriangles);
+    const  RaycastResult shadowResult = rayCast<HitType::ANY>(shadowRay, bvh, triangles, nTriangles);
 
     if ((shadowResult && shadowResult.t >= maxT - EPSILON) || !shadowResult)
     {
@@ -307,7 +318,7 @@ __device__ glm::fvec3 rayTrace(\
   int ptr = 2;
 
   // Primary ray
-  RaycastResult result = rayCast(ray, bvh, triangles, nTriangles);
+  RaycastResult result = rayCast<HitType::CLOSEST>(ray, bvh, triangles, nTriangles);
   if (!result)
     return color;
 
@@ -346,7 +357,7 @@ __device__ glm::fvec3 rayTrace(\
     RaycastTask currentTask = stack[ptr];
 
     // Primary ray
-    RaycastResult res = rayCast(currentTask.outRay, bvh, triangles, nTriangles);
+    RaycastResult res = rayCast<HitType::CLOSEST>(currentTask.outRay, bvh, triangles, nTriangles);
 
     if (!res)
       continue;
@@ -439,7 +450,7 @@ cudaDebugRay(\
 
   const Ray ray = camera.generateRay(nic, ar);
 
-  const RaycastResult result = rayCast(ray, bvh, triangles, nTriangles);
+  const RaycastResult result = rayCast<HitType::CLOSEST>(ray, bvh, triangles, nTriangles);
 
   if (!result)
     return;
@@ -449,7 +460,7 @@ cudaDebugRay(\
   const glm::fvec3 reflRayOrigin = result.point + interpolatedNormalIn * EPSILON;
   const glm::fvec3 reflRayDir = reflectionDirection(interpolatedNormalIn, ray.direction);
   const Ray reflRay = Ray(reflRayOrigin, reflRayDir);
-  const RaycastResult reflResult = rayCast(reflRay, bvh, triangles, nTriangles);
+  const RaycastResult reflResult = rayCast<HitType::CLOSEST>(reflRay, bvh, triangles, nTriangles);
 
   if (!reflResult)
     return;
@@ -463,7 +474,7 @@ cudaDebugRay(\
   const float maxT = glm::length(shadowRayDir); // Distance to the light
 
   const Ray shadowRay(shadowRayOrigin, shadowRayDir / maxT);
-  const RaycastResult shadowResult = rayCast(shadowRay, bvh, triangles, nTriangles);
+  const RaycastResult shadowResult = rayCast<HitType::CLOSEST>(shadowRay, bvh, triangles, nTriangles);
 
   const glm::fvec4 p = glm::inverse(camera.getMVP(size)) * glm::fvec4(nic, 0.f, 1.f);
 
