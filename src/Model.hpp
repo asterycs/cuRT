@@ -11,6 +11,12 @@
 
 #define MAX_TRIS_PER_LEAF 8
 
+enum SplitMode
+{
+  OBJECT_MEDIAN,
+  SAH
+};
+
 class Model
 {
 public:
@@ -26,10 +32,10 @@ public:
   const std::vector<Node>& getBVH() const;
   const std::string& getFileName() const;
   const AABB& getBbox() const;
-  void createBVH();
 private:
   void initialize(const aiScene *scene);
-  void sortOnMorton();
+  std::vector<std::pair<Triangle, unsigned int>> createBVH(const enum SplitMode splitMode);
+  void reorderIndices(const std::vector<unsigned int>& triRIdxMap);
   void createBVHColors();
 
   std::vector<Triangle> triangles;

@@ -21,9 +21,8 @@ Model::Model()
 
 Model::Model(const aiScene *scene, const std::string& fileName) : fileName(fileName)
 {
-  initialize(scene);
-  sortOnMorton();
-  createBVH();
+  initialize(scene); 
+  createBVH(SplitMode::OBJECT_MEDIAN);
   createBVHColors();
 }
 
@@ -289,17 +288,31 @@ void Model::createBVHColors()
   bvhBoxDescriptors = descriptors;
 }
 
-
-void Model::sortOnMorton()
+std::vector<std::pair<Triangle, unsigned int>> sortOnMorton(std::vector<Triangle> triangles, const AABB& boundingBox)
 {
+  std::vector<std::pair<Triangle, unsigned int>> triIdx;
+  
+  unsigned int idx = 0;
+  for (auto t : triangles)
+  {
+    triIdx.push_back(std::make_pair(t, idx++));
+  }
+  
   const auto& mortonCodes = getMortonCodes(triangles, boundingBox);
-  std::vector<unsigned int> sortedMortonCodes;
+
+  std::sort(triIdx.begin(), triIdx.end(), [&mortonCodes] (auto l, auto r)
+  {
+    return mortonCodes[l.second] < mortonCodes[r.second];
+  });
+  
+  return triIdx;
+}
+
+void Model::reorderIndices(const std::vector<unsigned int>& triRIdxMap)
+{
   std::vector<unsigned int> triIdxMap;
-  std::vector<unsigned int> triRIdxMap;
-
-  sort(mortonCodes, sortedMortonCodes, triRIdxMap);
-
-  triIdxMap.resize(sortedMortonCodes.size());
+  
+  triIdxMap.resize(triRIdxMap.size());
 
   for (std::size_t i = 0; i < triRIdxMap.size(); ++i)
   {
@@ -367,8 +380,84 @@ bool isBalanced(const Node *node, const Node* root, int* height)
   else return l && r;
 }
 
-void Model::createBVH()
+void splitNode(const Node& node, Node& leftChild, Node& rightChild, const SplitMode splitMode, const std::vector<Triangle> triangles)
 {
+  if (splitMode == SplitMode::OBJECT_MEDIAN)
+	{
+    leftChild.startTri = node.startTri;
+    leftChild.nTri = node.nTri / 2;
+    leftChild.bbox = computeBB(leftChild, triangles);
+
+    rightChild.startTri = leftChild.startTri + node.nTri / 2;
+    rightChild.nTri = node.nTri - leftChild.nTri;
+    rightChild.bbox = computeBB(rightChild, triangles);
+	}
+	else if (splitMode == SplitMode::SAH)
+	{
+		const glm::fvec3 bbMin = node.bbox.min;
+		std::vector<AABB> bbdata_f(node.nTri);
+		std::vector<AABB> bbdata_r(node.nTri);
+
+		float sa = node.bbox.area();
+		float parentCost = node.nTri * sa;
+
+		float minCost = std::numeric_limits<float>::max();
+		int minAxis = -1;
+		int minStep = -1;
+
+		int a = node.bbox.maxAxis();
+		{
+			auto start = triangles.begin() + node.startTri;
+			auto end = start + node.nTri;
+
+			sortTrisOnAxis(n, a);
+
+			for (int s = 0; s < triCount - 1; ++s)
+			{
+        const AABB lBox = computeBB(start, start + s, triangles);
+        const AABB rBox = computeBB(start + s, end, triangles);
+        
+				float currentCost = lBox.size() * s + rBox.size() * (triCount - s);
+
+				if (currentCost < minCost)
+				{
+					minCost = currentCost;
+					minStep = s;
+					minAxis = a;
+				}
+			}
+		}
+
+
+		if (minCost < parentCost)
+		{
+			int splitI = node.startTri + minStep;
+
+			leftChild.startPrim = n.startPrim;
+			leftChild.endPrim = splitI - 1;
+			leftChild.box = bbdata_f[minStep].box;
+
+			rightChild.startPrim = splitI;
+			rightChild.endPrim = n.endPrim;
+			rightChild.box = bbdata_r[triCount - minStep - 1].box;
+		}
+}
+
+std::vector<std::pair<Triangle, unsigned int>> Model::createBVH(const enum SplitMode splitMode)
+{
+  std::vector<std::pair<Triangle, unsigned int>> triIdx;
+  
+  if (splitMode == SplitMode::OBJECT_MEDIAN)
+  {
+    triIdx = sortOnMorton(triangles, boundingBox);
+  }else
+    unsigned int idx = 0;
+    for (auto t : triangles)
+    {
+      triIdx.push_back(std::make_pair(t, idx++));
+    }
+  }
+  
   // This is a simple top down approach that places the nodes in an array.
   // This makes the transfer to GPU simple.
   std::stack<Node> stack;
@@ -404,13 +493,7 @@ void Model::createBVH()
     if (node.nTri > MAX_TRIS_PER_LEAF)
     {
       Node left, right;
-      left.startTri = node.startTri;
-      left.nTri = node.nTri / 2;
-      left.bbox = computeBB(left, triangles);
-
-      right.startTri = left.startTri + node.nTri / 2;
-      right.nTri = node.nTri - left.nTri;
-      right.bbox = computeBB(right, triangles);
+      splitNode(node, left, right, splitMode, triIdx);
 
       stack.push(right);
       stack.push(left);

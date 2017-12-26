@@ -25,14 +25,14 @@ __device__ bool bboxIntersect(const AABB& box, const Ray& ray, float& t)
 {
   glm::fvec3 tmin(-BIGT), tmax(BIGT);
 
-  glm::fvec3 tdmin = (box.min - ray.origin) * ray.inverseDirection;
-  glm::fvec3 tdmax = (box.max - ray.origin) * ray.inverseDirection;
+  const glm::fvec3 tdmin = (box.min - ray.origin) * ray.inverseDirection;
+  const glm::fvec3 tdmax = (box.max - ray.origin) * ray.inverseDirection;
 
   tmin = glm::min(tdmin, tdmax);
   tmax = glm::max(tdmin, tdmax);
 
-  float tmind = glm::compMax(tmin);
-  float tmaxd = glm::compMin(tmax);
+  const float tmind = glm::compMax(tmin);
+  const float tmaxd = glm::compMin(tmax);
 
   t = fminf(tmind, tmaxd);
 
@@ -55,12 +55,6 @@ inline __device__ glm::fvec3 reflectionDirection(const glm::vec3& normal, const 
 }
 
 inline __device__ glm::fvec3 refractionDirection(const glm::vec3& normal, const glm::vec3& incoming, const float index1, const float index2) {
-  /*float sinOutAng = (sin(acos(cosInAng) * index1)) / index2;
-  glm::fvec3 den = (incoming + cosInAng * normal) * sinOutAng;
-
-  glm::fvec3 ret = den / sin(acos(cosInAng)) - normal * cos(asin(sinOutAng));
-
-  return ret;*/
 
   const float cosInAng = fabsf(glm::dot(incoming, normal));
   const float sin2t = (index1 / index2) * (index1 / index2) * (1 - cosInAng * cosInAng);
@@ -167,7 +161,7 @@ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles
   RaycastResult result;
 
   float hitt = BIGT;
-  bool hit = bboxIntersect(bvh[0].bbox, ray, hitt);
+  const bool hit = bboxIntersect(bvh[0].bbox, ray, hitt);
 
   if (!hit)
     return result;
@@ -434,7 +428,7 @@ __global__ void initRand(const int seed, curandState* const curandStateDevPtr, c
   curandStateDevPtr[x + y * size.x] = localState;
 }
 
-__global__ void initRand(unsigned long long* sobolDirectionVectors, unsigned long long* sobolScrambleConstants, curandStateScrambledSobol64* state, const int seed, const glm::ivec2 size)
+__global__ void initRand(curandDirectionVectors64_t* sobolDirectionVectors, unsigned long long* sobolScrambleConstants, curandStateScrambledSobol64* state, const glm::ivec2 size)
 {
   const int x = threadIdx.x + blockIdx.x * blockDim.x;
   const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -442,7 +436,10 @@ __global__ void initRand(unsigned long long* sobolDirectionVectors, unsigned lon
   if (x >= size.x || y >= size.y)
     return;
     
-  curand_init(&sobolDirectionVectors[x + size.x * y], sobolScrambleConstants[x + size.x * y], seed, &state[x + size.x * y]);
+  const unsigned int dirIdx = x + size.x * y % 20000;
+  const unsigned int scrIdx = x + size.x * y / 20000;
+    
+  curand_init((unsigned long long*) &sobolDirectionVectors[64 * dirIdx], sobolScrambleConstants[scrIdx], 0, &state[x + size.x * y]);
 }
 
 template <typename T>
@@ -559,8 +556,8 @@ void CudaRenderer::resize(const glm::ivec2& size)
   CUDA_CHECK(cudaMalloc((void **)&(devScrambleConstants64),              2 * size.x * size.y * sizeof(long long int)));
   CUDA_CHECK(cudaMemcpy(devScrambleConstants64, hostScrambleConstants64, 2 * size.x * size.y * sizeof(long long int), cudaMemcpyHostToDevice));
   
-  initRand<<<grid, block>>>(devDirectionVectors64, devScrambleConstants64, curandStateDevXRaw, 1111, size);
-  initRand<<<grid, block>>>(devDirectionVectors64 + size.x * size.y, devScrambleConstants64 + size.x * size.y, curandStateDevYRaw, 5555, size);
+  initRand<<<grid, block>>>(devDirectionVectors64, devScrambleConstants64, curandStateDevXRaw, size);
+  initRand<<<grid, block>>>(devDirectionVectors64 + size.x * size.y, devScrambleConstants64 + size.x * size.y, curandStateDevYRaw, size);
   
   CUDA_CHECK(cudaFree(devDirectionVectors64));
   CUDA_CHECK(cudaFree(devScrambleConstants64));

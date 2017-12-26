@@ -6,6 +6,8 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 
+#include <glm/gtx/component_wise.hpp>
+
 #ifdef ENABLE_CUDA
   #include <cuda_runtime.h>
 #endif
@@ -71,4 +73,18 @@ bool fileExists(const std::string& filename)
 {
     std::ifstream infile(filename);
     return infile.good();
+}
+
+CUDA_FUNCTION float AABB::area() const
+{
+  glm::fvec3 d = max - min;
+
+  return 2 * (d[0] * d[1] + d[0] * d[2] + d[2] * d[3]);
+}
+
+CUDA_FUNCTION unsigned int AABB::maxAxis() const
+{
+  glm::fvec3 d = max - min;
+  
+  return glm::compMax(d);
 }
