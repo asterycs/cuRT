@@ -25,7 +25,8 @@ App::App() :
     glcanvas(glm::ivec2(WWIDTH, WHEIGHT)),
     camera(),
     loader(),
-    drawDebug(false)
+    drawDebug(false),
+    debugBboxPtr(0u)
 {
 
 }
@@ -85,14 +86,15 @@ void App::MainLoop()
     {
       glcontext.draw(debugPoints, camera);
 
-      int ctr = 0;
+      unsigned int ctr = 0;
+
       for (auto& n : model.getBVH())
       {
         if (n.rightIndex == -1)
         {
-          ctr++;
+          ++ctr;
 
-          if (ctr == 3)
+          if (debugBboxPtr == model.getBVH().size() || ctr == debugBboxPtr)
             glcontext.draw(n.bbox, camera);
         }
       }
@@ -164,11 +166,20 @@ void App::mouseCallback(int button, int action, int /*modifiers*/)
 
 void App::scrollCallback(double /*xOffset*/, double yOffset)
 {
+  if (drawDebug)
+  {
+    if (yOffset < 0)
+      debugBboxPtr = debugBboxPtr > 0 ? debugBboxPtr - 1 : model.getBVH().size();
+    else if (yOffset > 0)
+      debugBboxPtr = debugBboxPtr >= model.getBVH().size() ? 0 : debugBboxPtr + 1;
 
-  if (yOffset < 0)
-    camera.increaseFOV();
-  else if (yOffset > 0)
-    camera.decreaseFOV();
+  }else
+  {
+    if (yOffset < 0)
+      camera.increaseFOV();
+    else if (yOffset > 0)
+      camera.decreaseFOV();
+  }
 }
 
 void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)

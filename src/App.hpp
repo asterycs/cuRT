@@ -66,6 +66,7 @@ private:
     ModelLoader loader;
 
     bool drawDebug;
+    unsigned int debugBboxPtr;
 };
 
 #endif

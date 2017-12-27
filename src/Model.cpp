@@ -22,7 +22,7 @@ Model::Model()
 Model::Model(const aiScene *scene, const std::string& fileName) : fileName(fileName)
 {
   initialize(scene); 
-  auto trisWithIds = createBVH(SplitMode::OBJECT_MEDIAN);
+  auto trisWithIds = createBVH(SplitMode::SAH);
   reorderMeshIndices(trisWithIds);
   createBVHColors();
 }
@@ -541,17 +541,6 @@ std::vector<std::pair<Triangle, unsigned int>> Model::createBVH(const enum Split
   }
 
   this->bvh = finishedNodes;
-
-
-  for (auto e : bvh)
-  {
-    //if (e.rightIndex == -1)
-    {
-      std::cout << e.startTri << " " << e.startTri + e.nTri << " " << e.rightIndex << std::endl;
-      std::cout << glm::to_string(e.bbox.min) << " " << glm::to_string(e.bbox.max) << " " << e.bbox.area() << std::endl << std::endl;
-    }
-  }
-
 
   return triIdx;
 }
