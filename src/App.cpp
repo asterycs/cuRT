@@ -84,6 +84,7 @@ void App::MainLoop()
 
     if (drawDebug)
     {
+      glcontext.renderText("D", -1.f, 0.68f);
       glcontext.draw(debugPoints, camera);
 
       unsigned int ctr = 0;
