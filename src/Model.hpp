@@ -35,7 +35,7 @@ public:
 private:
   void initialize(const aiScene *scene);
   std::vector<std::pair<Triangle, unsigned int>> createBVH(const enum SplitMode splitMode);
-  void reorderIndices(const std::vector<unsigned int>& triRIdxMap);
+  void reorderMeshIndices(const std::vector<std::pair<Triangle, unsigned int>>& trisWithIds);
   void createBVHColors();
 
   std::vector<Triangle> triangles;

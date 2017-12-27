@@ -79,12 +79,19 @@ CUDA_FUNCTION float AABB::area() const
 {
   glm::fvec3 d = max - min;
 
-  return 2 * (d[0] * d[1] + d[0] * d[2] + d[2] * d[3]);
+  return 2 * (d[0] * d[1] + d[0] * d[2] + d[1] * d[2]);
 }
 
 CUDA_FUNCTION unsigned int AABB::maxAxis() const
 {
-  glm::fvec3 d = max - min;
-  
-  return glm::compMax(d);
+  const glm::fvec3 d = glm::abs(max - min);
+  const float mv = glm::compMax(d);
+
+  for (unsigned int i = 0; i < 3; ++i)
+  {
+    if (d[i] == mv)
+      return i;
+  }
+
+  return 0;
 }

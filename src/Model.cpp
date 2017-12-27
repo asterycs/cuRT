@@ -22,7 +22,8 @@ Model::Model()
 Model::Model(const aiScene *scene, const std::string& fileName) : fileName(fileName)
 {
   initialize(scene); 
-  createBVH(SplitMode::OBJECT_MEDIAN);
+  auto trisWithIds = createBVH(SplitMode::OBJECT_MEDIAN);
+  reorderMeshIndices(trisWithIds);
   createBVHColors();
 }
 
@@ -35,89 +36,89 @@ void Model::initialize(const aiScene *scene)
   glm::fvec3 maxTri(-999.f,-999.f,-999.f);
   glm::fvec3 minTri(999.f,999.f,999.f);
 
-    for (std::size_t mi = 0; mi < scene->mNumMeshes; mi++)
+  for (std::size_t mi = 0; mi < scene->mNumMeshes; mi++)
+  {
+    aiMesh *mesh = scene->mMeshes[mi];
+
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    if (mesh->mMaterialIndex > 0)
     {
-      aiMesh *mesh = scene->mMeshes[mi];
-      
-      std::vector<Vertex> vertices;
-      std::vector<unsigned int> indices;
+      Material material = Material();
 
-      if (mesh->mMaterialIndex > 0)
+      aiMaterial& mat = *scene->mMaterials[mesh->mMaterialIndex];
+
+      aiColor3D aiAmbient    (0.f,0.f,0.f);
+      aiColor3D aiDiffuse    (0.f,0.f,0.f);
+      aiColor3D aiSpecular   (0.f,0.f,0.f);
+      aiColor3D aiEmission   (0.f,0.f,0.f);
+      aiColor3D aiTransparent(0.f,0.f,0.f);
+
+      mat.Get(AI_MATKEY_COLOR_AMBIENT,     aiAmbient);
+      mat.Get(AI_MATKEY_COLOR_DIFFUSE,     aiDiffuse);
+      mat.Get(AI_MATKEY_COLOR_SPECULAR,    aiSpecular);
+      mat.Get(AI_MATKEY_COLOR_EMISSIVE,    aiEmission);
+      mat.Get(AI_MATKEY_COLOR_TRANSPARENT, aiTransparent);
+
+      mat.Get(AI_MATKEY_REFRACTI,          material.refrIdx);
+      mat.Get(AI_MATKEY_SHININESS,         material.shininess);
+
+      material.colorAmbient     = ai2glm3f(aiAmbient);
+      material.colorDiffuse     = ai2glm3f(aiDiffuse);
+      material.colorEmission    = ai2glm3f(aiEmission);
+      material.colorSpecular    = ai2glm3f(aiSpecular);
+      material.colorTransparent = glm::fvec3(1.f) - ai2glm3f(aiTransparent);
+
+      std::vector<unsigned int> vertexIds(mesh->mNumFaces * 3);
+      std::iota(vertexIds.begin(), vertexIds.end(), triangleOffset * 3);
+
+      MeshDescriptor meshDescr = MeshDescriptor(vertexIds, materials.size());
+      materials.push_back(material);
+      meshDescriptors.push_back(meshDescr);
+      triangleOffset += mesh->mNumFaces;
+    }else
+      continue;
+
+    for (std::size_t vi = 0; vi < mesh->mNumVertices; vi++)
+    {
+      Vertex newVertex;
+      auto& oldVertex = mesh->mVertices[vi];
+
+      newVertex.p = glm::fvec3(oldVertex.x, oldVertex.y, oldVertex.z);
+
+      if (mesh->HasNormals())
       {
-        Material material = Material();
-
-        aiMaterial& mat = *scene->mMaterials[mesh->mMaterialIndex];
-               
-        aiColor3D aiAmbient    (0.f,0.f,0.f);
-        aiColor3D aiDiffuse    (0.f,0.f,0.f);
-        aiColor3D aiSpecular   (0.f,0.f,0.f);
-        aiColor3D aiEmission   (0.f,0.f,0.f);
-        aiColor3D aiTransparent(0.f,0.f,0.f);
-
-        mat.Get(AI_MATKEY_COLOR_AMBIENT,     aiAmbient);
-        mat.Get(AI_MATKEY_COLOR_DIFFUSE,     aiDiffuse);
-        mat.Get(AI_MATKEY_COLOR_SPECULAR,    aiSpecular);
-        mat.Get(AI_MATKEY_COLOR_EMISSIVE,    aiEmission);
-        mat.Get(AI_MATKEY_COLOR_TRANSPARENT, aiTransparent);
-
-        mat.Get(AI_MATKEY_REFRACTI,          material.refrIdx);
-        mat.Get(AI_MATKEY_SHININESS,         material.shininess);
-
-        material.colorAmbient     = ai2glm3f(aiAmbient);
-        material.colorDiffuse     = ai2glm3f(aiDiffuse);
-        material.colorEmission    = ai2glm3f(aiEmission);
-        material.colorSpecular    = ai2glm3f(aiSpecular);
-        material.colorTransparent = glm::fvec3(1.f) - ai2glm3f(aiTransparent);
-
-        std::vector<unsigned int> vertexIds(mesh->mNumFaces * 3);
-        std::iota(vertexIds.begin(), vertexIds.end(), triangleOffset * 3);
-
-        MeshDescriptor meshDescr = MeshDescriptor(vertexIds, materials.size());
-        materials.push_back(material);
-        meshDescriptors.push_back(meshDescr);
-        triangleOffset += mesh->mNumFaces;
-      }else
-        continue;
-      
-      for (std::size_t vi = 0; vi < mesh->mNumVertices; vi++)
-      {
-        Vertex newVertex;
-        auto& oldVertex = mesh->mVertices[vi];
-
-        newVertex.p = glm::fvec3(oldVertex.x, oldVertex.y, oldVertex.z);
-
-        if (mesh->HasNormals())
-        {
-          auto& oldNormal = mesh->mNormals[vi];
-          newVertex.n = glm::fvec3(oldNormal.x, oldNormal.y, oldNormal.z);
-        }
-
-        if (mesh->mTextureCoords[0])
-        {
-          auto& tc = mesh->mTextureCoords[0][vi];
-          newVertex.t = glm::fvec2(tc.x, tc.y);
-        }
-        
-        vertices.push_back(newVertex);
+        auto& oldNormal = mesh->mNormals[vi];
+        newVertex.n = glm::fvec3(oldNormal.x, oldNormal.y, oldNormal.z);
       }
 
-      for (std::size_t i = 0; i < mesh->mNumFaces; ++i)
+      if (mesh->mTextureCoords[0])
       {
-        aiFace& face = mesh->mFaces[i];
-
-        if (face.mNumIndices == 3)
-        {
-          Triangle triangle = Triangle(vertices[face.mIndices[0]], vertices[face.mIndices[1]], vertices[face.mIndices[2]]);
-
-          triangles.push_back(triangle);
-
-          maxTri = glm::max(maxTri, triangle.max());
-          minTri = glm::min(minTri, triangle.min());
-        }
-
-        triangleMaterialIds.push_back(materials.size() - 1);
+        auto& tc = mesh->mTextureCoords[0][vi];
+        newVertex.t = glm::fvec2(tc.x, tc.y);
       }
+
+      vertices.push_back(newVertex);
     }
+
+    for (std::size_t i = 0; i < mesh->mNumFaces; ++i)
+    {
+      aiFace& face = mesh->mFaces[i];
+
+      if (face.mNumIndices == 3)
+      {
+        Triangle triangle = Triangle(vertices[face.mIndices[0]], vertices[face.mIndices[1]], vertices[face.mIndices[2]]);
+
+        triangles.push_back(triangle);
+
+        maxTri = glm::max(maxTri, triangle.max());
+        minTri = glm::min(minTri, triangle.min());
+      }
+
+      triangleMaterialIds.push_back(materials.size() - 1);
+    }
+  }
 }
 
 const std::vector<Triangle>& Model::getTriangles() const
@@ -165,18 +166,18 @@ unsigned int expandBits(unsigned int v)
     return v;
 }
 
-AABB computeBB(Node& node, const std::vector<Triangle>& triangles)
+AABB computeBB(const unsigned int startIdx, const unsigned int endIdx, const std::vector<std::pair<Triangle, unsigned int>>& triangles)
 {
   // Construct BB
   glm::fvec3 minXYZ = glm::fvec3(std::numeric_limits<float>::max());
   glm::fvec3 maxXYZ = glm::fvec3(-std::numeric_limits<float>::max());
 
-  if (node.nTri > 0)
+  if (endIdx - startIdx > 0)
   {
-    for (int ti = node.startTri; ti < node.startTri + node.nTri; ti++)
+    for (unsigned int ti = startIdx; ti < endIdx; ++ti)
     {
-      glm::fvec3 pmin = triangles[ti].min();
-      glm::fvec3 pmax = triangles[ti].max();
+      glm::fvec3 pmin = triangles[ti].first.min();
+      glm::fvec3 pmax = triangles[ti].first.max();
 
       minXYZ = glm::min(pmin, minXYZ);
       maxXYZ = glm::max(pmax, maxXYZ);
@@ -308,36 +309,33 @@ std::vector<std::pair<Triangle, unsigned int>> sortOnMorton(std::vector<Triangle
   return triIdx;
 }
 
-void Model::reorderIndices(const std::vector<unsigned int>& triRIdxMap)
+void Model::reorderMeshIndices(const std::vector<std::pair<Triangle, unsigned int>>& trisWithIds)
 {
   std::vector<unsigned int> triIdxMap;
-  
-  triIdxMap.resize(triRIdxMap.size());
+  triIdxMap.resize(trisWithIds.size());
 
-  for (std::size_t i = 0; i < triRIdxMap.size(); ++i)
+  for (std::size_t i = 0; i < trisWithIds.size(); ++i)
   {
-    triIdxMap[triRIdxMap[i]] = i;
+    triIdxMap[trisWithIds[i].second] = i;
   }
 
   std::vector<Triangle> newTriangles(triangles.size());
 
   for (std::size_t ti = 0; ti < triangles.size(); ++ti)
   {
-    newTriangles[ti] = triangles[triRIdxMap[ti]];
+    newTriangles[ti] = trisWithIds[ti].first;
   }
 
   std::vector<unsigned int> newTriangleMaterialIds(triangleMaterialIds.size());
 
   for (std::size_t ti = 0; ti < triangles.size(); ++ti)
   {
-    newTriangleMaterialIds[ti] = triangleMaterialIds[triRIdxMap[ti]];
+    newTriangleMaterialIds[ti] = triangleMaterialIds[trisWithIds[ti].second];
   }
 
   triangleMaterialIds = newTriangleMaterialIds;
   triangles = newTriangles;
 
-  // All this hassle is just so one could use the same GPU vertices for OpenGL drawing
-  // while maintaining a good memory ordering
   std::vector<unsigned int> vertIdxMap(triIdxMap.size() * 3);
 
   for (std::size_t ti = 0; ti < triIdxMap.size(); ++ti)
@@ -361,7 +359,7 @@ bool isBalanced(const Node *node, const Node* root, int* height)
 {
   int lh = 0, rh = 0;
 
-  int l = 0, r = 0;
+  int l = 0, r = 0;  void reorderIndices(const std::vector<unsigned int>& triRIdxMap);
 
   if(node->rightIndex == -1)
   {
@@ -380,67 +378,82 @@ bool isBalanced(const Node *node, const Node* root, int* height)
   else return l && r;
 }
 
-void splitNode(const Node& node, Node& leftChild, Node& rightChild, const SplitMode splitMode, const std::vector<Triangle> triangles)
+void sortTrisOnAxis(const Node& node, const unsigned int axis, std::vector<std::pair<Triangle, unsigned int>>& triangles)
+{
+  const auto start = triangles.begin() + node.startTri;
+  const auto end = start + node.nTri;
+
+  std::sort(start, end, [axis](std::pair<Triangle, unsigned int>& l, std::pair<Triangle, unsigned int>& r)
+      {
+        return l.first.center()[axis] < r.first.center()[axis];
+      });
+}
+
+bool splitNode(const Node& node, Node& leftChild, Node& rightChild, const SplitMode splitMode, std::vector<std::pair<Triangle, unsigned int>> triangles, const unsigned int maxTris)
 {
   if (splitMode == SplitMode::OBJECT_MEDIAN)
 	{
-    leftChild.startTri = node.startTri;
-    leftChild.nTri = node.nTri / 2;
-    leftChild.bbox = computeBB(leftChild, triangles);
+    if (node.nTri > static_cast<int>(maxTris))
+    {
+      leftChild.startTri = node.startTri;
+      leftChild.nTri = node.nTri / 2;
+      leftChild.bbox = computeBB(leftChild.startTri, leftChild.startTri + leftChild.nTri, triangles);
 
-    rightChild.startTri = leftChild.startTri + node.nTri / 2;
-    rightChild.nTri = node.nTri - leftChild.nTri;
-    rightChild.bbox = computeBB(rightChild, triangles);
+      rightChild.startTri = leftChild.startTri + node.nTri / 2;
+      rightChild.nTri = node.nTri - leftChild.nTri;
+      rightChild.bbox = computeBB(rightChild.startTri, rightChild.startTri + rightChild.nTri, triangles);
+
+      return true;
+    }else
+      return false;
 	}
 	else if (splitMode == SplitMode::SAH)
 	{
-		const glm::fvec3 bbMin = node.bbox.min;
-		std::vector<AABB> bbdata_f(node.nTri);
-		std::vector<AABB> bbdata_r(node.nTri);
-
-		float sa = node.bbox.area();
-		float parentCost = node.nTri * sa;
+		const float sa = node.bbox.area();
+		const float parentCost = node.nTri * sa;
 
 		float minCost = std::numeric_limits<float>::max();
-		int minAxis = -1;
 		int minStep = -1;
+		AABB minLbox;
+		AABB minRbox;
 
-		int a = node.bbox.maxAxis();
-		{
-			auto start = triangles.begin() + node.startTri;
-			auto end = start + node.nTri;
+		unsigned int a = node.bbox.maxAxis();
+    sortTrisOnAxis(node, a, triangles);
 
-			sortTrisOnAxis(n, a);
+    for (int s = 1; s < node.nTri - 1; ++s)
+    {
+      const AABB lBox = computeBB(node.startTri, node.startTri + s, triangles);
+      const AABB rBox = computeBB(node.startTri + s, node.startTri + node.nTri, triangles);
 
-			for (int s = 0; s < triCount - 1; ++s)
-			{
-        const AABB lBox = computeBB(start, start + s, triangles);
-        const AABB rBox = computeBB(start + s, end, triangles);
-        
-				float currentCost = lBox.size() * s + rBox.size() * (triCount - s);
+      const float currentCost = lBox.area() * s + rBox.area() * (node.nTri - s);
 
-				if (currentCost < minCost)
-				{
-					minCost = currentCost;
-					minStep = s;
-					minAxis = a;
-				}
-			}
-		}
-
+      if (currentCost < minCost)
+      {
+        minCost = currentCost;
+        minStep = s;
+        minLbox = lBox;
+        minRbox = rBox;
+      }
+    }
 
 		if (minCost < parentCost)
 		{
-			int splitI = node.startTri + minStep;
+			leftChild.startTri = node.startTri;
+			leftChild.nTri = minStep;
+			leftChild.bbox = minLbox;
 
-			leftChild.startPrim = n.startPrim;
-			leftChild.endPrim = splitI - 1;
-			leftChild.box = bbdata_f[minStep].box;
+			rightChild.startTri = node.startTri + minStep;
+			rightChild.nTri = node.nTri - minStep;
+			rightChild.bbox = minRbox;
 
-			rightChild.startPrim = splitI;
-			rightChild.endPrim = n.endPrim;
-			rightChild.box = bbdata_r[triCount - minStep - 1].box;
+			return true;
+		}else
+		{
+		  return false;
 		}
+
+	}else
+	  throw std::runtime_error("Unknown BVH split type");
 }
 
 std::vector<std::pair<Triangle, unsigned int>> Model::createBVH(const enum SplitMode splitMode)
@@ -451,7 +464,9 @@ std::vector<std::pair<Triangle, unsigned int>> Model::createBVH(const enum Split
   {
     triIdx = sortOnMorton(triangles, boundingBox);
   }else
+  {
     unsigned int idx = 0;
+
     for (auto t : triangles)
     {
       triIdx.push_back(std::make_pair(t, idx++));
@@ -476,7 +491,7 @@ std::vector<std::pair<Triangle, unsigned int>> Model::createBVH(const enum Split
   Node first;
   first.startTri = 0;
   first.nTri = triangles.size();
-  first.bbox = computeBB(first, triangles);
+  first.bbox = computeBB(first.startTri, first.startTri + first.nTri, triIdx);
   first.rightIndex = -1;
 
   stack.push(first);
@@ -490,11 +505,11 @@ std::vector<std::pair<Triangle, unsigned int>> Model::createBVH(const enum Split
     int parentIndex = parentIndices.top();
     parentIndices.pop();
 
-    if (node.nTri > MAX_TRIS_PER_LEAF)
-    {
-      Node left, right;
-      splitNode(node, left, right, splitMode, triIdx);
+    Node left, right;
+    const bool splitted = splitNode(node, left, right, splitMode, triIdx, MAX_TRIS_PER_LEAF);
 
+    if (splitted)
+    {
       stack.push(right);
       stack.push(left);
 
@@ -527,7 +542,18 @@ std::vector<std::pair<Triangle, unsigned int>> Model::createBVH(const enum Split
 
   this->bvh = finishedNodes;
 
-  return;
+
+  for (auto e : bvh)
+  {
+    //if (e.rightIndex == -1)
+    {
+      std::cout << e.startTri << " " << e.startTri + e.nTri << " " << e.rightIndex << std::endl;
+      std::cout << glm::to_string(e.bbox.min) << " " << glm::to_string(e.bbox.max) << " " << e.bbox.area() << std::endl << std::endl;
+    }
+  }
+
+
+  return triIdx;
 }
 
 const std::vector<Node>& Model::getBVH() const

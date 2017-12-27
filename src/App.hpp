@@ -57,12 +57,15 @@ private:
 #ifdef ENABLE_CUDA
     CudaRenderer cudaRenderer;
 #endif
+    Model model;
     GLModel glmodel;
     GLLight gllight;
     GLCanvas glcanvas;
     
     Camera camera;
     ModelLoader loader;
+
+    bool drawDebug;
 };
 
 #endif

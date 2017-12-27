@@ -20,8 +20,8 @@ public:
   void resize(const glm::ivec2& size);
 
 private:
-  thrust::device_vector<curandStateScrambledSobol64> curandStateDevVecX; // For area light sampling
-  thrust::device_vector<curandStateScrambledSobol64> curandStateDevVecY;
+  thrust::device_vector<curandState_t> curandStateDevVecX; // For area light sampling
+  thrust::device_vector<curandState_t> curandStateDevVecY;
 };
 
 #endif // CUDARENDERER_HPP

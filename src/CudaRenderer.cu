@@ -470,7 +470,7 @@ cudaDebugRay(\
   const float ar = (float) size.x / size.y;
   const Ray ray = camera.generateRay(nic, ar);
 
-  (void) rayTrace<false>(\
+  (void) rayTrace<true>(\
       bvh,
       ray, \
       triangles, \
@@ -535,12 +535,13 @@ void CudaRenderer::resize(const glm::ivec2& size)
 {
   curandStateDevVecX.resize(size.x * size.y);
   curandStateDevVecY.resize(size.x * size.y);
-  curandStateScrambledSobol64* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
-  curandStateScrambledSobol64* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
+  auto* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
+  auto* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
 
   dim3 block(BLOCKWIDTH, BLOCKWIDTH);
   dim3 grid( (size.x + block.x - 1) / block.x, (size.y + block.y - 1) / block.y);
   
+  /*
   curandDirectionVectors64_t* hostDirectionVectors64;
   unsigned long long int* hostScrambleConstants64;
   
@@ -556,11 +557,16 @@ void CudaRenderer::resize(const glm::ivec2& size)
   CUDA_CHECK(cudaMalloc((void **)&(devScrambleConstants64),              2 * size.x * size.y * sizeof(long long int)));
   CUDA_CHECK(cudaMemcpy(devScrambleConstants64, hostScrambleConstants64, 2 * size.x * size.y * sizeof(long long int), cudaMemcpyHostToDevice));
   
-  initRand<<<grid, block>>>(devDirectionVectors64, devScrambleConstants64, curandStateDevXRaw, size);
+  initRand(devDirectionVectors64, devScrambleConstants64, curandStateDevXRaw, size);
   initRand<<<grid, block>>>(devDirectionVectors64 + size.x * size.y, devScrambleConstants64 + size.x * size.y, curandStateDevYRaw, size);
   
   CUDA_CHECK(cudaFree(devDirectionVectors64));
   CUDA_CHECK(cudaFree(devScrambleConstants64));
+  */
+
+  initRand<<<grid, block>>>(0, curandStateDevXRaw, size);
+  initRand<<<grid, block>>>(5, curandStateDevYRaw, size);
+
   
   CUDA_CHECK(cudaDeviceSynchronize());
 }

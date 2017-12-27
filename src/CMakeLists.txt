@@ -19,3 +19,5 @@ endif(ENABLE_CUDA)
 
 target_link_libraries(graphx ${LINK_LIBS})
 add_dependencies(graphx copy_shader_files copy_benchmark_script)
+
+

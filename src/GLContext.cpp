@@ -288,6 +288,38 @@ void GLContext::updateFPS(const float dTime)
   fps = 0.5f * fps + 0.5 * 1/dTime;
 }
 
+void GLContext::draw(const AABB& box, const Camera& camera)
+{
+  const glm::fvec3 p0(box.min);
+  const glm::fvec3 p1(box.max);
+  const glm::fvec3 p2(p0.x, p0.y, p1.z);
+  const glm::fvec3 p3(p0.x, p1.y, p0.z);
+  const glm::fvec3 p4(p1.x, p0.y, p0.z);
+  const glm::fvec3 p5(p0.x, p1.y, p1.z);
+  const glm::fvec3 p6(p1.x, p0.y, p1.z);
+  const glm::fvec3 p7(p1.x, p1.y, p0.z);
+
+  const std::vector<glm::fvec3> vertices
+  {
+    p5, p1,
+    p1, p7,
+    p7, p3,
+    p3, p5,
+
+    p2, p6,
+    p6, p4,
+    p4, p0,
+    p0, p2,
+
+    p5, p2,
+    p1, p6,
+    p7, p4,
+    p3, p0
+  };
+
+  draw(vertices, camera);
+}
+
 void GLContext::drawShadowMap(const GLLight& light)
 {
   GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));

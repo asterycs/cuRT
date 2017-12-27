@@ -24,7 +24,8 @@ App::App() :
     gllight(),
     glcanvas(glm::ivec2(WWIDTH, WHEIGHT)),
     camera(),
-    loader()
+    loader(),
+    drawDebug(false)
 {
 
 }
@@ -62,7 +63,6 @@ void App::MainLoop()
     switch (activeRenderer)
     {
     case ActiveRenderer::GL:
-      glcontext.draw(debugPoints, camera);
       glcontext.draw(glmodel, gllight, camera);
       break;
 #ifdef ENABLE_CUDA
@@ -79,6 +79,23 @@ void App::MainLoop()
       fps = glcontext.getFPS();
       glcontext.updateFPS(dTime);
       lastUpdated = cTime;
+    }
+
+    if (drawDebug)
+    {
+      glcontext.draw(debugPoints, camera);
+
+      int ctr = 0;
+      for (auto& n : model.getBVH())
+      {
+        if (n.rightIndex == -1)
+        {
+          ctr++;
+
+          if (ctr == 3)
+            glcontext.draw(n.bbox, camera);
+        }
+      }
     }
 
     glcontext.renderText(fps + " FPS", -1.f, 0.8f);
@@ -214,6 +231,7 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
     }
   }else if (key == GLFW_KEY_D && action == GLFW_PRESS && (modifiers & GLFW_MOD_CONTROL))
   {
+    drawDebug = !drawDebug;
 #ifdef ENABLE_CUDA
     const glm::ivec2 pos = glcontext.getCursorPos();
     debugPoints = cudaRenderer.debugRay(pos, glcanvas.getSize(), camera, glmodel, gllight);
@@ -263,6 +281,7 @@ void App::createSceneFile(const std::string& filename)
 void App::loadModel(const std::string& modelFile)
 {
   Model scene = loader.loadOBJ(modelFile);
+  model = scene;
   glmodel.load(scene);
 }
 

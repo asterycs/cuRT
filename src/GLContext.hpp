@@ -30,6 +30,7 @@ public:
   void draw(const GLModel& scene, const GLLight& light, const Camera& mvp);
   void draw(const GLCanvas& canvas);
   void draw(const std::vector<glm::fvec3>& points, const Camera& camera);
+  void draw(const AABB& box, const Camera& camera);
   void resize(const glm::ivec2& newSize);
   bool shadersLoaded() const;
   
