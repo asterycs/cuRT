@@ -151,7 +151,7 @@ enum HitType
     CLOSEST
 };
 
-template <HitType hitType>
+template <bool debug, HitType hitType>
 __device__
 RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles)
 {
@@ -182,10 +182,22 @@ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles
       float t = 0;
       glm::fvec2 uv;
 
+      if (debug)
+      {
+        const AABB& b = currentNode.bbox;
+        printf("\nHit bbox %d:\n", currentNodeIdx);
+        printf("min: %f %f %f\n", b.min[0], b.min[1], b.min[2]);
+        printf("max: %f %f %f\n", b.max[0], b.max[1], b.max[2]);
+        printf("StardIdx: %d, endIdx: %d, nTris: %d\n\n", currentNode.startTri, currentNode.startTri + currentNode.nTri, currentNode.nTri);
+      }
+
       for (int i = currentNode.startTri; i < currentNode.startTri + currentNode.nTri; ++i)
-       {
+      {
         if (rayTriangleIntersection(ray, triangles[i], t, uv))
         {
+          if (debug)
+            printf("Hit triangle %d\n", i);
+
           if(t < tMin)
           {
             tMin = t;
@@ -196,7 +208,7 @@ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles
               break;
           }
         }
-       }
+      }
 
     }else
     {
@@ -232,6 +244,9 @@ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles
   result.triangleIdx = minTriIdx;
   result.uv = minUV;
 
+  if (debug)
+    printf("///////////////////\n\n");
+
   return result;
 }
 
@@ -263,7 +278,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
 
     const Ray shadowRay(shadowRayOrigin, shadowRayDirNormalized);
 
-    const  RaycastResult shadowResult = rayCast<HitType::ANY>(shadowRay, bvh, triangles);
+    const  RaycastResult shadowResult = rayCast<false, HitType::ANY>(shadowRay, bvh, triangles);
 
     if ((shadowResult && shadowResult.t >= maxT - EPSILON) || !shadowResult)
     {
@@ -313,7 +328,7 @@ __device__ glm::fvec3 rayTrace(\
   unsigned int posPtr = 0;
 
   // Primary ray
-  RaycastResult result = rayCast<HitType::CLOSEST>(ray, bvh, triangles);
+  RaycastResult result = rayCast<debug, HitType::CLOSEST>(ray, bvh, triangles);
   if (!result)
     return color;
 
@@ -358,7 +373,7 @@ __device__ glm::fvec3 rayTrace(\
     RaycastTask currentTask = stack[ptr];
 
     // Primary ray
-    RaycastResult res = rayCast<HitType::CLOSEST>(currentTask.outRay, bvh, triangles);
+    RaycastResult res = rayCast<debug, HitType::CLOSEST>(currentTask.outRay, bvh, triangles);
 
     if (!res)
       continue;

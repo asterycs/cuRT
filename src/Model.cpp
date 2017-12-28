@@ -417,7 +417,7 @@ bool splitNode(const Node& node, Node& leftChild, Node& rightChild, const SplitM
 		AABB minLbox;
 		AABB minRbox;
 
-		unsigned int a = node.bbox.maxAxis();
+		const unsigned int a = node.bbox.maxAxis();
     sortTrisOnAxis(node, a, triangles);
 
     for (int s = 1; s < node.nTri - 1; ++s)

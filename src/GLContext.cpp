@@ -95,6 +95,7 @@ GLContext::GLContext() :
   textShader.loadShader("shaders/text/vshader.glsl", "shaders/text/fshader.glsl");
   depthShader.loadShader("shaders/depth/vshader.glsl", "shaders/depth/fshader.glsl");
   lineShader.loadShader("shaders/line/vshader.glsl", "shaders/line/fshader.glsl");
+  triShader.loadShader("shaders/tri/vshader.glsl", "shaders/tri/fshader.glsl");
   
   std::cout << "OpenGL context initialized" << std::endl;
 
@@ -283,6 +284,12 @@ void GLContext::draw(const GLModel& model, const GLLight& light, const Camera& c
   drawLight(light, camera);
 }
 
+void GLContext::draw(const GLModel& model, const GLLight& light, const Camera& camera, const Node& debugNode)
+{
+  drawNodeTriangles(model, light, camera, debugNode);
+}
+
+
 void GLContext::updateFPS(const float dTime)
 {
   fps = 0.5f * fps + 0.5 * 1/dTime;
@@ -376,6 +383,47 @@ void GLContext::showWindow()
   glfwShowWindow(window);
 }
 
+void GLContext::drawNodeTriangles(const GLModel& model, const GLLight& light, const Camera& camera, const Node& node)
+{
+  if (!shadersLoaded() || model.getNTriangles() == 0)
+    return;
+
+  GL_CHECK(glViewport(0,0,size.x, size.y));
+  GL_CHECK(glCullFace(GL_BACK));
+  GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+  GL_CHECK(glDepthFunc(GL_LEQUAL));
+
+  const auto& vaoID = model.getVaoID();
+
+  modelShader.bind();
+  modelShader.updateUniformMat4f("posToCamera", camera.getMVP(size));
+  modelShader.updateUniformMat4f("biasedDepthToLight", light.getDepthBiasMVP());
+  modelShader.updateUniform3fv("lightPos", light.getLight().getPosition());
+  modelShader.updateUniform3fv("lightNormal", light.getLight().getNormal());
+
+  GL_CHECK(glActiveTexture(GL_TEXTURE0));
+  modelShader.updateUniform1i("shadowMap", 0);
+  GL_CHECK(glBindTexture(GL_TEXTURE_2D, light.getShadowMap().getDepthTextureID()));
+  GL_CHECK(glBindVertexArray(vaoID));
+
+
+  std::vector<GLuint> vIndices(node.nTri * 3);
+
+  unsigned int cntr = node.startTri * 3;
+  for (auto& v : vIndices)
+  {
+    v = cntr++;
+  }
+
+  modelShader.updateUniform3fv("material.colorAmbient", glm::fvec3(1.f, 1.f, 0.f));
+  modelShader.updateUniform3fv("material.colorDiffuse", glm::fvec3(1.f, 1.f, 0.f));
+  GL_CHECK(glDrawElements(GL_TRIANGLES, vIndices.size(), GL_UNSIGNED_INT, vIndices.data()));
+
+
+  GL_CHECK(glBindVertexArray(0));
+  modelShader.unbind();
+}
+
 void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLight& light)
 {
   if (!shadersLoaded() || model.getNTriangles() == 0)
@@ -384,12 +432,11 @@ void GLContext::drawModel(const GLModel& model, const Camera& camera, const GLLi
   GL_CHECK(glViewport(0,0,size.x, size.y));
   GL_CHECK(glCullFace(GL_BACK));
   GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+  GL_CHECK(glDepthFunc(GL_LEQUAL));
 
   const auto& vaoID = model.getVaoID();
-  const auto& meshDescriptors = model.getMeshDescriptors(); // TODO: Switch between bvh visualization and normal colors
+  const auto& meshDescriptors = model.getMeshDescriptors();
   const auto& materials = model.getMaterials();
-  //const auto& meshDescriptors = model.getBVHBoxDescriptors();
-  //const auto& materials = model.getBVHBoxMaterials();
 
   modelShader.bind();
   modelShader.updateUniformMat4f("posToCamera", camera.getMVP(size));

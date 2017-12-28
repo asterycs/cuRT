@@ -24,6 +24,7 @@ public:
     void showWindow();
 
     void MainLoop();
+    void drawDebugInfo();
 
     void mouseCallback(int button, int action, int modifiers);
     void scrollCallback(double xOffset, double yOffset);

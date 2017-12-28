@@ -84,21 +84,7 @@ void App::MainLoop()
 
     if (drawDebug)
     {
-      glcontext.renderText("D", -1.f, 0.68f);
-      glcontext.draw(debugPoints, camera);
-
-      unsigned int ctr = 0;
-
-      for (auto& n : model.getBVH())
-      {
-        if (n.rightIndex == -1)
-        {
-          ++ctr;
-
-          if (debugBboxPtr == model.getBVH().size() || ctr == debugBboxPtr)
-            glcontext.draw(n.bbox, camera);
-        }
-      }
+      drawDebugInfo();
     }
 
     glcontext.renderText(fps + " FPS", -1.f, 0.8f);
@@ -107,6 +93,27 @@ void App::MainLoop()
   }
 
   createSceneFile(LAST_SCENEFILE_NAME);
+}
+
+void App::drawDebugInfo()
+{
+
+  if (debugBboxPtr != model.getBVH().size())
+    glcontext.draw(glmodel, gllight, camera, model.getBVH()[debugBboxPtr]);
+
+  unsigned int ctr = 0;
+
+  for (auto& n : model.getBVH())
+  {
+    if (debugBboxPtr == model.getBVH().size() || ctr == debugBboxPtr)
+      glcontext.draw(n.bbox, camera);
+
+    ++ctr;
+  }
+
+  glcontext.renderText("D", -1.f, 0.68f);
+  glcontext.renderText(debugBboxPtr == model.getBVH().size() ? "All" : std::to_string(debugBboxPtr), -0.9f, 0.68f);
+  glcontext.draw(debugPoints, camera);
 }
 
 void App::showWindow()
@@ -169,6 +176,15 @@ void App::scrollCallback(double /*xOffset*/, double yOffset)
 {
   if (drawDebug)
   {
+    /*const std::size_t nLeaves = std::count_if(std::begin(model.getBVH()), std::end(model.getBVH()), [](const Node& n)
+        {
+          if (n.rightIndex == -1)
+            return true;
+          else
+            return false;
+        });
+    */
+
     if (yOffset < 0)
       debugBboxPtr = debugBboxPtr > 0 ? debugBboxPtr - 1 : model.getBVH().size();
     else if (yOffset > 0)
