@@ -290,7 +290,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
     }
   }
 
-  brightness /= SHADOWSAMPLING;
+  brightness *= 1 / SHADOWSAMPLING;
 
   return brightness;
 }

@@ -21,7 +21,7 @@ Model::Model()
 
 Model::Model(const aiScene *scene, const std::string& fileName) : fileName(fileName)
 {
-  initialize(scene); 
+  initialize(scene);
   auto trisWithIds = createBVH(SplitMode::SAH);
   reorderMeshIndices(trisWithIds);
   createBVHColors();
@@ -389,7 +389,7 @@ void sortTrisOnAxis(const Node& node, const unsigned int axis, std::vector<std::
       });
 }
 
-bool splitNode(const Node& node, Node& leftChild, Node& rightChild, const SplitMode splitMode, std::vector<std::pair<Triangle, unsigned int>> triangles, const unsigned int maxTris)
+bool splitNode(const Node& node, Node& leftChild, Node& rightChild, const SplitMode splitMode, std::vector<std::pair<Triangle, unsigned int>>& triangles, const unsigned int maxTris)
 {
   if (splitMode == SplitMode::OBJECT_MEDIAN)
 	{
