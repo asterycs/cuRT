@@ -25,9 +25,9 @@ void GLLight::load(const Light& light)
   {
     material.colorAmbient   = glm::vec3(1.0f, 1.0f, 1.0f);
     material.colorDiffuse   = glm::vec3(1.0f, 1.0f, 1.0f);
-    material.colorEmission  = glm::vec3(1.0f, 1.0f, 1.0f);
+    //material.colorEmission  = glm::vec3(1.0f, 1.0f, 1.0f);
     material.colorSpecular  = glm::vec3(1.0f, 1.0f, 1.0f);
-    material.shininess      = 1000;
+    //material.shininess      = 1000;
   }
 
   std::vector<Material> materials { material };

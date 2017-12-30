@@ -62,11 +62,11 @@ void Model::initialize(const aiScene *scene)
       mat.Get(AI_MATKEY_COLOR_TRANSPARENT, aiTransparent);
 
       mat.Get(AI_MATKEY_REFRACTI,          material.refrIdx);
-      mat.Get(AI_MATKEY_SHININESS,         material.shininess);
+     // mat.Get(AI_MATKEY_SHININESS,         material.shininess);
 
       material.colorAmbient     = ai2glm3f(aiAmbient);
       material.colorDiffuse     = ai2glm3f(aiDiffuse);
-      material.colorEmission    = ai2glm3f(aiEmission);
+      //material.colorEmission    = ai2glm3f(aiEmission);
       material.colorSpecular    = ai2glm3f(aiSpecular);
       material.colorTransparent = glm::fvec3(1.f) - ai2glm3f(aiTransparent);
 
@@ -409,6 +409,9 @@ bool splitNode(const Node& node, Node& leftChild, Node& rightChild, const SplitM
 	}
 	else if (splitMode == SplitMode::SAH)
 	{
+    if (node.nTri <= static_cast<int>(maxTris))
+      return false;
+
 		const float sa = node.bbox.area();
 		const float parentCost = node.nTri * sa;
 
@@ -480,8 +483,8 @@ std::vector<std::pair<Triangle, unsigned int>> Model::createBVH(const enum Split
 
   std::vector<Node> finishedNodes;
   std::vector<int> touchCount;
-  //const unsigned int nTris = triangles.size();
-  const unsigned int nodecountAppr = 0;//std::pow(2.f, std::ceil(std::log2(nTris / static_cast<float>(MAX_TRIS_PER_LEAF))) + 1) - 1;
+
+  const unsigned int nodecountAppr = 0;
   finishedNodes.reserve(nodecountAppr);
   touchCount.reserve(nodecountAppr);
 

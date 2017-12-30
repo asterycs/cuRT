@@ -17,8 +17,8 @@
 #define BLOCKWIDTH 8
 #define EPSILON 0.00001f
 #define BIGT 99999.f
-#define SHADOWSAMPLING 32
-#define SECONDARY_RAYS 3
+#define SHADOWSAMPLING 8
+#define SECONDARY_RAYS 1
 #define AIR_INDEX 1.f
 
 __device__ bool bboxIntersect(const AABB& box, const Ray& ray, float& t)
@@ -72,29 +72,25 @@ __device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle
   const glm::vec3& vertex1 = triangle.vertices[1].p;
   const glm::vec3& vertex2 = triangle.vertices[2].p;
 
-  const glm::fvec3 edge1 = vertex1 - vertex0;
-  const glm::fvec3 edge2 = vertex2 - vertex0;
-
-  const glm::fvec3 h = glm::cross(ray.direction, edge2);
-  const float a = glm::dot(edge1, h);
+  const glm::fvec3 h = glm::cross(ray.direction, vertex2 - vertex0);
+  const float a = glm::dot(vertex1 - vertex0, h);
 
   if (a > -EPSILON && a < EPSILON)
     return false;
 
   const float f = __fdividef(1.f, a);
-  const glm::fvec3 s = ray.origin - vertex0;
-  const float u = f * glm::dot(s, h);
+  const float u = f * glm::dot(ray.origin - vertex0, h);
 
   if (u < 0.f || u > 1.0f)
     return false;
 
-  const glm::fvec3 q = glm::cross(s, edge1);
+  const glm::fvec3 q = glm::cross(ray.origin - vertex0, vertex1 - vertex0);
   const float v = f * glm::dot(ray.direction, q);
 
   if (v < 0.0 || u + v > 1.0)
     return false;
 
-  t = f * glm::dot(edge2, q);
+  t = f * glm::dot(vertex2 - vertex0, q);
 
   if (t > EPSILON)
   {
@@ -105,50 +101,13 @@ __device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle
     return false;
 }
 
-__global__ void dynamicIntersection(const Ray ray, const Triangle triangles[], const unsigned int nTris, float* minT, unsigned int* tri)
-{
-  const int tid = threadIdx.x;
-  const int i = threadIdx.x + blockIdx.x * blockDim.x;
-
-  if (i >= nTris)
-    return;
-
-  __shared__ float ts[8];
-  __shared__ unsigned int triIds[8];
-
-  float t;
-  glm::fvec2 uv;
-  rayTriangleIntersection(ray, triangles[i], t, uv);
-
-  ts[tid] = t;
-  triIds[tid] = tid;
-  __syncthreads();
-
-
-  for (unsigned int s=1; s < blockDim.x; s *= 2) {
-    if (tid % (2*s) == 0) {
-      ts[tid] = fminf(ts[tid + s], ts[tid]);
-
-      if (ts[tid] == ts[tid + s])
-        triIds[tid] = triIds[tid + s];
-    }
-    __syncthreads();
-  }
-
-  if (tid == 0)
-  {
-    *minT = ts[0];
-    *tri = triIds[0];
-  }
-}
-
 enum HitType
 {
     ANY,
     CLOSEST
 };
 
-template <const bool debug, HitType hitType>
+template <const bool debug, const HitType hitType>
 __device__
 RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles)
 {
@@ -163,19 +122,24 @@ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles
   if (!hit)
     return result;
 
-  int ptr = 1;
+  int ptr = 0;
   int stack[16] { 0 };
 
-  while (ptr > 0)
-  {
-    --ptr;
+  bool atLeaf = false;
 
+  while (ptr >= 0)
+  {
     int currentNodeIdx = stack[ptr];
     Node currentNode = bvh[currentNodeIdx];
 
 
     if (currentNode.rightIndex == -1)
     {
+      atLeaf = true;
+
+      if (!__all(atLeaf))
+        continue;
+
       float t = 0;
       glm::fvec2 uv;
 
@@ -207,14 +171,16 @@ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles
         }
       }
 
+      atLeaf = false;
+
     }else
     {
-      Node leftChild = bvh[stack[ptr] + 1];
-      Node rightChild = bvh[currentNode.rightIndex];
+      const AABB leftBox = bvh[stack[ptr] + 1].bbox;
+      const AABB rightBox = bvh[currentNode.rightIndex].bbox;
 
       float leftt, rightt;
-      bool leftHit = bboxIntersect(leftChild.bbox, ray, leftt);
-      bool rightHit = bboxIntersect(rightChild.bbox, ray, rightt);
+      bool leftHit = bboxIntersect(leftBox, ray, leftt);
+      bool rightHit = bboxIntersect(rightBox, ray, rightt);
 
       if (leftHit && leftt < tMin)
       {
@@ -228,15 +194,13 @@ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles
         ++ptr;
       }
     }
-
+    --ptr;
   }
 
   if (minTriIdx == -1)
     return result;
 
-  glm::fvec3 hitPoint = ray.origin + ray.direction * tMin;
-
-  result.point = hitPoint;
+  result.point = ray.origin + ray.direction * tMin;
   result.t = tMin;
   result.triangleIdx = minTriIdx;
   result.uv = minUV;
@@ -253,10 +217,10 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
 {
   glm::fvec3 brightness(0.f);
 
-  if (!light.isEnabled())
-    return brightness;
+  //if (!light.isEnabled())
+  //  return brightness;
 
-  const Triangle& hitTriangle = triangles[result.triangleIdx];
+  const Triangle hitTriangle = triangles[result.triangleIdx];
 
   glm::fvec3 lightSamplePoint;
   float pdf;
@@ -346,16 +310,16 @@ __device__ glm::fvec3 rayTrace(\
       hitPoints[posPtr++] = result.point;
     }
     
-    const Triangle& triangle = triangles[result.triangleIdx];
-    const Material& material = materials[triangleMaterialIds[result.triangleIdx]];
+    const Triangle triangle = triangles[result.triangleIdx];
+    const Material material = materials[triangleMaterialIds[result.triangleIdx]];
     glm::fvec3 interpolatedNormal = triangle.normal(result.uv);
 
-    bool flipped = true;
+    bool inside = true;
 
     if (glm::dot(interpolatedNormal, currentTask.outRay.direction) > 0.f)
       interpolatedNormal = -interpolatedNormal;
     else
-      flipped = false;
+      inside = false;
 
     color += currentTask.filter * material.colorAmbient * 0.25f;
     const glm::fvec3 brightness = areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2);
@@ -378,7 +342,7 @@ __device__ glm::fvec3 rayTrace(\
       float idx1 = AIR_INDEX;
       float idx2 = AIR_INDEX;
 
-      if (flipped)
+      if (inside)
         idx1 = material.refrIdx;
       else
         idx2 = material.refrIdx;
@@ -539,9 +503,7 @@ cudaRender(\
 
   glm::vec2 nic = camera.normalizedImageCoordinateFromPixelCoordinate(glm::ivec2(x, y), canvasSize);
 
-  const float ar = (float) canvasSize.x/canvasSize.y;
-
-  Ray ray = camera.generateRay(nic, ar);
+  Ray ray = camera.generateRay(nic, (float) canvasSize.x/canvasSize.y);
 
   curandStateType state1 = curandStateDevXPtr[x + y * canvasSize.x];
   curandStateType state2 = curandStateDevYPtr[x + y * canvasSize.x];

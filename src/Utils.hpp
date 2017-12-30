@@ -57,16 +57,16 @@ struct Material
 {
   glm::fvec3 colorAmbient;
   glm::fvec3 colorDiffuse;
-  glm::fvec3 colorEmission;
+  //glm::fvec3 colorEmission;
   glm::fvec3 colorSpecular;
   glm::fvec3 colorTransparent;
 
   float refrIdx;
-  float shininess;
+  //float shininess;
 
   // TextureIndex?
 
-  Material() : colorAmbient(0.0f), colorDiffuse(0.0f), colorEmission(0.0f), colorSpecular(0.0f), refrIdx(1.f), shininess(0.0f) {};
+  Material() : colorAmbient(0.0f), colorDiffuse(0.0f), colorSpecular(0.0f), refrIdx(1.f) {};
 
 };
 
