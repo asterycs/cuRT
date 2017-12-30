@@ -48,14 +48,7 @@ inline __device__ glm::fvec3 reflectionDirection(const glm::vec3& normal, const 
 
   const float cosT = glm::dot(incoming, normal);
 
-  glm::fvec3 n;
-
-  if (cosT > 0.f)
-    n = normal;
-  else
-    n = normal;
-
-  return incoming - 2 * cosT * n;
+  return incoming - 2 * cosT * normal;
 }
 
 inline __device__ glm::fvec3 refractionDirection(const glm::vec3& normal, const glm::vec3& incoming, const float index1, const float index2) {
@@ -355,7 +348,14 @@ __device__ glm::fvec3 rayTrace(\
     
     const Triangle& triangle = triangles[result.triangleIdx];
     const Material& material = materials[triangleMaterialIds[result.triangleIdx]];
-    const glm::fvec3 interpolatedNormal = triangle.normal(result.uv);
+    glm::fvec3 interpolatedNormal = triangle.normal(result.uv);
+
+    bool flipped = true;
+
+    if (glm::dot(interpolatedNormal, currentTask.outRay.direction) > 0.f)
+      interpolatedNormal = -interpolatedNormal;
+    else
+      flipped = false;
 
     color += currentTask.filter * material.colorAmbient * 0.25f;
     const glm::fvec3 brightness = areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2);
@@ -378,10 +378,10 @@ __device__ glm::fvec3 rayTrace(\
       float idx1 = AIR_INDEX;
       float idx2 = AIR_INDEX;
 
-      if (glm::dot(currentTask.outRay.direction, interpolatedNormal) < 0.f)
-        idx2 = material.refrIdx;
-      else
+      if (flipped)
         idx1 = material.refrIdx;
+      else
+        idx2 = material.refrIdx;
 
       // Transmittance and reflection according to fresnel
       const float cosi = fabsf(glm::dot(currentTask.outRay.direction, interpolatedNormal));
@@ -531,12 +531,10 @@ cudaRender(\
     curandStateType* curandStateDevYPtr, \
     const Node* bvh)
 {
-  const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  const int x = threadIdx.x + blockIdx.x * blockDim.x;
+  const int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-  const int x = idx % canvasSize.x;
-  const int y = idx / canvasSize.x;
-
-  if (y >= canvasSize.y)
+  if (x >= canvasSize.x || y >= canvasSize.y)
     return;
 
   glm::vec2 nic = camera.normalizedImageCoordinateFromPixelCoordinate(glm::ivec2(x, y), canvasSize);
@@ -545,8 +543,8 @@ cudaRender(\
 
   Ray ray = camera.generateRay(nic, ar);
 
-  curandStateType state1 = curandStateDevXPtr[idx];
-  curandStateType state2 = curandStateDevYPtr[idx];
+  curandStateType state1 = curandStateDevXPtr[x + y * canvasSize.x];
+  curandStateType state2 = curandStateDevYPtr[x + y * canvasSize.x];
 
   glm::fvec3 color = rayTrace<false>(\
       bvh,
@@ -560,8 +558,8 @@ cudaRender(\
       state1, \
       state2);
 
-  curandStateDevXPtr[idx] = state1;
-  curandStateDevYPtr[idx] = state2;
+  curandStateDevXPtr[x + y * canvasSize.x] = state1;
+  curandStateDevYPtr[x + y * canvasSize.x] = state2;
 
   writeToCanvas(x, y, canvas, canvasSize, color);
 
@@ -678,10 +676,10 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
 
   int meshes = model.getNMeshes();
 
-  //dim3 block(BLOCKWIDTH, BLOCKWIDTH);
-  //dim3 grid( (canvasSize.x+ block.x - 1) / block.x, (canvasSize.y + block.y - 1) / block.y);
-  dim3 block(BLOCKWIDTH * BLOCKWIDTH);
-  dim3 grid( (canvasSize.x * canvasSize.y + block.x - 1) / block.x);
+  dim3 block(BLOCKWIDTH, BLOCKWIDTH);
+  dim3 grid( (canvasSize.x+ block.x - 1) / block.x, (canvasSize.y + block.y - 1) / block.y);
+  //dim3 block(BLOCKWIDTH * BLOCKWIDTH);
+  //dim3 grid( (canvasSize.x * canvasSize.y + block.x - 1) / block.x);
 
   cudaRender<<<grid, block>>>(\
       surfaceObj, \
