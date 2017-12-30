@@ -66,7 +66,7 @@ struct Material
 
   // TextureIndex?
 
-  Material() : colorAmbient(0.0f), colorDiffuse(0.0f), colorEmission(0.0f), colorSpecular(0.0f), shininess(0.0f) {};
+  Material() : colorAmbient(0.0f), colorDiffuse(0.0f), colorEmission(0.0f), colorSpecular(0.0f), refrIdx(1.f), shininess(0.0f) {};
 
 };
 

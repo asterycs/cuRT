@@ -11,7 +11,7 @@ Have a look at the CMakeLists.txt but in short:
 - libglew3-dev
 - libfreetype6-dev
 - libgtk3-dev
-- Cuda toolkit
+- Cuda toolkit 8.0 (9.0 seems incompatible with glm)
 - Recent Cuda capable GPU.
 
 Most dependencies are handled with CMake.
@@ -30,10 +30,11 @@ Select an .obj file to open by pressing O-key. Hit Enter to switch between CUDA 
 - OpenGL preview
     - Shadow maps
 - Raytracer in CUDA
-    - Area lights with soft shadows
+    - Area lights with soft shadows and quasirandom sampling
     - Reflections
     - Refractions
     - Simple BVH based on morton codes
+    - SAH based bvh
 
 ### Planned improvements:
 - Better BVH

@@ -9,6 +9,14 @@
 #include "GLCanvas.hpp"
 #include "Camera.hpp"
 
+#define QUASIRANDOM
+
+#ifdef QUASIRANDOM
+#define CURAND_TYPE curandStateScrambledSobol64
+#else
+#define CURAND_TYPE curandState_t
+#endif
+
 class CudaRenderer
 {
 public:
@@ -20,8 +28,8 @@ public:
   void resize(const glm::ivec2& size);
 
 private:
-  thrust::device_vector<curandState_t> curandStateDevVecX; // For area light sampling
-  thrust::device_vector<curandState_t> curandStateDevVecY;
+  thrust::device_vector<CURAND_TYPE> curandStateDevVecX; // For area light sampling
+  thrust::device_vector<CURAND_TYPE> curandStateDevVecY;
 };
 
 #endif // CUDARENDERER_HPP

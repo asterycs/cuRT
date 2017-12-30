@@ -17,7 +17,7 @@
 #define BLOCKWIDTH 8
 #define EPSILON 0.00001f
 #define BIGT 99999.f
-#define SHADOWSAMPLING 256
+#define SHADOWSAMPLING 64
 #define SECONDARY_RAYS 3
 #define AIR_INDEX 1.f
 
@@ -290,7 +290,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
     }
   }
 
-  brightness *= 1 / SHADOWSAMPLING;
+  brightness /= SHADOWSAMPLING;
 
   return brightness;
 }
@@ -451,14 +451,19 @@ __global__ void initRand(curandDirectionVectors64_t* sobolDirectionVectors, unsi
   if (x >= size.x || y >= size.y)
     return;
     
-  const unsigned int dirIdx = x + size.x * y % 20000;
-  const unsigned int scrIdx = x + size.x * y / 20000;
+  const unsigned int scrIdx = x + size.x * y;
+  const unsigned int dirIdx = (x + size.x * y) % 10000;
+
+  curandDirectionVectors64_t* dir = &sobolDirectionVectors[dirIdx];
+  unsigned long long scr = sobolScrambleConstants[scrIdx];
+  curandStateScrambledSobol64 localState;
     
-  curand_init((unsigned long long*) &sobolDirectionVectors[64 * dirIdx], sobolScrambleConstants[scrIdx], 0, &state[x + size.x * y]);
+  curand_init(*dir, scr, 0, &localState);
+
+  state[x + size.x * y] = localState;
 }
 
-template <typename T>
-__device__ void writeToCanvas(const unsigned int x, const unsigned int y, const cudaSurfaceObject_t& surfaceObj, const glm::ivec2& canvasSize, T& data)
+__device__ void writeToCanvas(const unsigned int x, const unsigned int y, const cudaSurfaceObject_t& surfaceObj, const glm::ivec2& canvasSize, const glm::vec3& data)
 {
   float4 out = make_float4(data.x, data.y, data.z, 1.f);
   surf2Dwrite(out, surfaceObj, (canvasSize.x - 1 - x) * sizeof(out), y);
@@ -546,6 +551,34 @@ cudaRender(\
   return;
 }
 
+template <typename curandStateType>
+__global__ void
+cudaTestRnd(\
+    const cudaSurfaceObject_t canvas, \
+    const glm::ivec2 canvasSize, \
+    curandStateType* curandStateDevXPtr, \
+    curandStateType* curandStateDevYPtr)
+{
+  const int x = threadIdx.x + blockIdx.x * blockDim.x;
+  const int y = threadIdx.y + blockIdx.y * blockDim.y;
+
+  if (x >= canvasSize.x || y >= canvasSize.y)
+    return;
+
+  curandStateType localState1 = curandStateDevXPtr[x + y * canvasSize.x];
+  curandStateType localState2 = curandStateDevYPtr[x + y * canvasSize.x];
+
+  float r = curand_uniform(&localState1);
+  float g = curand_uniform(&localState1);
+
+  curandStateDevXPtr[x + y * canvasSize.x] = localState1;
+  curandStateDevYPtr[x + y * canvasSize.x] = localState2;
+
+  writeToCanvas(x, y, canvas, canvasSize, glm::fvec3(r, g, 0.f));
+
+  return;
+}
+
 void CudaRenderer::resize(const glm::ivec2& size)
 {
   curandStateDevVecX.resize(size.x * size.y);
@@ -555,33 +588,33 @@ void CudaRenderer::resize(const glm::ivec2& size)
 
   dim3 block(BLOCKWIDTH, BLOCKWIDTH);
   dim3 grid( (size.x + block.x - 1) / block.x, (size.y + block.y - 1) / block.y);
-  
-  /*
+
+#ifdef QUASIRANDOM
   curandDirectionVectors64_t* hostDirectionVectors64;
   unsigned long long int* hostScrambleConstants64;
   
   curandDirectionVectors64_t* devDirectionVectors64;
   unsigned long long int* devScrambleConstants64;
   
-  CUDA_CHECK(curandGetDirectionVectors64(&hostDirectionVectors64, CURAND_SCRAMBLED_DIRECTION_VECTORS_64_JOEKUO6));
-  CUDA_CHECK(curandGetScrambleConstants64(&hostScrambleConstants64));
+  curandGetDirectionVectors64(&hostDirectionVectors64, CURAND_SCRAMBLED_DIRECTION_VECTORS_64_JOEKUO6);
+  curandGetScrambleConstants64(&hostScrambleConstants64);
   
-  CUDA_CHECK(cudaMalloc((void **)&(devDirectionVectors64),             2 * size.x * size.y * 64 * sizeof(long long int)));
-  CUDA_CHECK(cudaMemcpy(devDirectionVectors64, hostDirectionVectors64, 2 * size.x * size.y * 64 * sizeof(long long int), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc((void **)&(devDirectionVectors64),             20000 * sizeof(curandDirectionVectors64_t)));
+  CUDA_CHECK(cudaMemcpy(devDirectionVectors64, hostDirectionVectors64, 20000 * sizeof(curandDirectionVectors64_t), cudaMemcpyHostToDevice));
   
-  CUDA_CHECK(cudaMalloc((void **)&(devScrambleConstants64),              2 * size.x * size.y * sizeof(long long int)));
-  CUDA_CHECK(cudaMemcpy(devScrambleConstants64, hostScrambleConstants64, 2 * size.x * size.y * sizeof(long long int), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc((void **)&(devScrambleConstants64),              size.x * size.y * sizeof(unsigned long long int)));
+  CUDA_CHECK(cudaMemcpy(devScrambleConstants64, hostScrambleConstants64, size.x * size.y * sizeof(unsigned long long int), cudaMemcpyHostToDevice));
   
-  initRand(devDirectionVectors64, devScrambleConstants64, curandStateDevXRaw, size);
-  initRand<<<grid, block>>>(devDirectionVectors64 + size.x * size.y, devScrambleConstants64 + size.x * size.y, curandStateDevYRaw, size);
+  initRand<<<grid, block>>>(devDirectionVectors64, devScrambleConstants64, curandStateDevXRaw, size);
+  initRand<<<grid, block>>>(devDirectionVectors64 + 10000, devScrambleConstants64, curandStateDevYRaw, size);
   
   CUDA_CHECK(cudaFree(devDirectionVectors64));
   CUDA_CHECK(cudaFree(devScrambleConstants64));
-  */
 
+#else
   initRand<<<grid, block>>>(0, curandStateDevXRaw, size);
   initRand<<<grid, block>>>(5, curandStateDevYRaw, size);
-
+#endif
   
   CUDA_CHECK(cudaDeviceSynchronize());
 }
@@ -642,6 +675,8 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
       curandStateDevYRaw, \
       model.getDeviceBVH());
 
+  //cudaTestRnd<<<grid, block>>>(surfaceObj, canvasSize, curandStateDevXRaw, curandStateDevYRaw);
+
 
   model.unmapCudaTrianglePtr();
   canvas.cudaUnmap();
@@ -662,7 +697,7 @@ std::vector<glm::fvec3> CudaRenderer::debugRay(const glm::ivec2 pixelPos, const 
   dim3 block(1, 1);
   dim3 grid(1, 1);
 
-  unsigned int secondaryVertices = 4;//std::pow(2u, SECONDARY_RAYS) == 1 ? 0 : std::pow(2u, SECONDARY_RAYS) * 2;
+  unsigned int secondaryVertices = std::pow(2u, SECONDARY_RAYS) == 1 ? 0 : std::pow(2u, SECONDARY_RAYS) * 2;
   const int nVertices = 2 + secondaryVertices;
 
   glm::fvec3* devPosPtr;
