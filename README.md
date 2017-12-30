@@ -29,6 +29,8 @@ Select an .obj file to open by pressing O-key. Hit Enter to switch between CUDA 
 ### Current features:
 - OpenGL preview
     - Shadow maps
+    - Ray visualization (ctrl + D)
+    - BVH visualization
 - Raytracer in CUDA
     - Area lights with soft shadows and quasirandom sampling
     - Reflections
@@ -41,6 +43,7 @@ Select an .obj file to open by pressing O-key. Hit Enter to switch between CUDA 
 - Textures
 - More optimization
 
-![Screenshot](screenshot.png?raw=true "Screenshot")
+![Screenshot1](screenshot.png?raw=true "Screenshot")
+![Screenshot2](bvh.png?raw=true "Debug visualization")
 
 Screenshot model downloaded from Morgan McGuire's Computer Graphics Archive https://casual-effects.com/data

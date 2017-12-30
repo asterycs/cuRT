@@ -17,7 +17,7 @@
 #define BLOCKWIDTH 8
 #define EPSILON 0.00001f
 #define BIGT 99999.f
-#define SHADOWSAMPLING 64
+#define SHADOWSAMPLING 32
 #define SECONDARY_RAYS 3
 #define AIR_INDEX 1.f
 
@@ -48,10 +48,14 @@ inline __device__ glm::fvec3 reflectionDirection(const glm::vec3& normal, const 
 
   const float cosT = glm::dot(incoming, normal);
 
+  glm::fvec3 n;
+
   if (cosT > 0.f)
-    return incoming - 2 * cosT * -normal;
+    n = normal;
   else
-    return incoming - 2 * cosT * normal;
+    n = normal;
+
+  return incoming - 2 * cosT * n;
 }
 
 inline __device__ glm::fvec3 refractionDirection(const glm::vec3& normal, const glm::vec3& incoming, const float index1, const float index2) {
@@ -237,7 +241,7 @@ RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles
   if (minTriIdx == -1)
     return result;
 
-  glm::fvec3 hitPoint = ray.origin + glm::normalize(ray.direction) * tMin;
+  glm::fvec3 hitPoint = ray.origin + ray.direction * tMin;
 
   result.point = hitPoint;
   result.t = tMin;
@@ -324,73 +328,38 @@ __device__ glm::fvec3 rayTrace(\
   constexpr unsigned int stackSize = cpow(2, SECONDARY_RAYS);
   RaycastTask stack[stackSize];
   glm::fvec3 color(0.f);
-  int ptr = 2;
+  int stackPtr = 0;
   unsigned int posPtr = 0;
 
   // Primary ray
-  RaycastResult result = rayCast<debug, HitType::CLOSEST>(ray, bvh, triangles);
-  if (!result)
-    return color;
+  stack[stackPtr].outRay = ray;
+  stack[stackPtr].levelsLeft = SECONDARY_RAYS;
+  stack[stackPtr].filter = glm::fvec3(1.f);
+  ++stackPtr;
 
-  if (debug)
+  while (stackPtr > 0)
   {
-    hitPoints[posPtr++] = ray.origin;
-    hitPoints[posPtr++] = result.point;
-  }
-  
-  const Triangle* hitTriangle = &triangles[result.triangleIdx];
-  const Material* material = &materials[triangleMaterialIds[result.triangleIdx]];
-  const glm::fvec3 interpolatedNormal = hitTriangle->normal(result.uv);
+    --stackPtr;
 
-  color = material->colorAmbient * 0.25f; // Ambient lightning
-  color += material->colorDiffuse / glm::pi<float>() * areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2);
+    const RaycastTask currentTask = stack[stackPtr];
+    const RaycastResult result = rayCast<debug, HitType::CLOSEST>(currentTask.outRay, bvh, triangles);
 
-  if (SECONDARY_RAYS == 0)
-    return color;
-
-  // Initialize reflection
-  const glm::fvec3 reflRayOrigin = result.point + interpolatedNormal * EPSILON;
-  const glm::fvec3 reflRayDir = reflectionDirection(interpolatedNormal, ray.direction);
-  const Ray reflRay = Ray(reflRayOrigin, reflRayDir);
-
-  stack[0].outRay = reflRay;
-  stack[0].levelsLeft = SECONDARY_RAYS - 1;
-  stack[0].filter = material->colorSpecular;
-
-  // Initialize refraction
-  const glm::fvec3 transRayOrigin = result.point - interpolatedNormal * EPSILON;
-  const glm::fvec3 transRayDir = refractionDirection(interpolatedNormal, ray.direction, AIR_INDEX, material->refrIdx);
-  const Ray transRay = Ray(transRayOrigin, transRayDir);
-
-  stack[1].outRay = transRay;
-  stack[1].levelsLeft = SECONDARY_RAYS - 1;
-  stack[1].filter = material->colorTransparent;
-
-  while (ptr > 0)
-  {
-    --ptr;
-
-    RaycastTask currentTask = stack[ptr];
-
-    // Primary ray
-    RaycastResult res = rayCast<debug, HitType::CLOSEST>(currentTask.outRay, bvh, triangles);
-
-    if (!res)
+    if (!result)
       continue;
 
     if (debug)
     {
       hitPoints[posPtr++] = currentTask.outRay.origin;
-      hitPoints[posPtr++] = res.point;
+      hitPoints[posPtr++] = result.point;
     }
     
-    const Triangle* tri = &triangles[res.triangleIdx];
-    const Material* mat = &materials[triangleMaterialIds[res.triangleIdx]];
-    const glm::fvec3 norm = tri->normal(res.uv);
+    const Triangle& triangle = triangles[result.triangleIdx];
+    const Material& material = materials[triangleMaterialIds[result.triangleIdx]];
+    const glm::fvec3 interpolatedNormal = triangle.normal(result.uv);
 
-    color += currentTask.filter * mat->colorAmbient * 0.25f;
-    const glm::fvec3 brightness = areaLightShading(light, bvh, res, triangles, nTriangles, curandState1, curandState2);
-    color += currentTask.filter * mat->colorDiffuse / glm::pi<float>() * brightness;
+    color += currentTask.filter * material.colorAmbient * 0.25f;
+    const glm::fvec3 brightness = areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2);
+    color += currentTask.filter * material.colorDiffuse / glm::pi<float>() * brightness;
 
     if (currentTask.levelsLeft == 0)
       continue;
@@ -398,32 +367,68 @@ __device__ glm::fvec3 rayTrace(\
     RaycastTask reflTask;
     RaycastTask refrTask;
 
-    const glm::fvec3 reflOrig = res.point + interpolatedNormal * EPSILON;
-    const glm::fvec3 reflDir = reflectionDirection(interpolatedNormal, currentTask.outRay.direction);
+    const bool isReflective = material.colorSpecular.x != 0.f || material.colorSpecular.y != 0.f || material.colorSpecular.z != 0.f;
+    const bool isRefractive = material.colorTransparent.x != 0.f || material.colorTransparent.y != 0.f || material.colorTransparent.z != 0.f;
 
-    reflTask.outRay = Ray(reflOrig, reflDir);
-    reflTask.levelsLeft = currentTask.levelsLeft - 1;
-    reflTask.filter = currentTask.filter * mat->colorSpecular;
-    stack[ptr] = reflTask;
-    ++ptr;
+    float R = 1.f;
+    float T = 0.f;
 
+    if (isRefractive)
+    {
+      float idx1 = AIR_INDEX;
+      float idx2 = AIR_INDEX;
 
-    float idx1 = AIR_INDEX;
-    float idx2 = AIR_INDEX;
+      if (glm::dot(ray.direction, interpolatedNormal) < 0.f)
+        idx2 = material.refrIdx;
+      else
+        idx1 = material.refrIdx;
 
-    if (glm::dot(currentTask.outRay.direction, norm) < 0.f)
-      idx2 = mat->refrIdx;
-    else
-      idx1 = mat->refrIdx;
+      // Transmittance and reflection according to fresnel
+      const float cosi = fabsf(glm::dot(ray.direction, interpolatedNormal));
+      const float sin2t = (AIR_INDEX / material.refrIdx) * (idx1 / idx2) * (1 - cosi * cosi);
+      const float cost = sqrt(1 - sin2t);
 
-    const glm::fvec3 transOrig = res.point - interpolatedNormal * EPSILON;
-    const glm::fvec3 transDir = refractionDirection(interpolatedNormal, currentTask.outRay.direction, idx1, idx2);
+      float Rp = (idx1 * cosi - idx2 * cost) / (idx1 * cosi + idx2 * cost);
+      Rp = Rp * Rp;
 
-    refrTask.outRay = Ray(transOrig, transDir);
-    refrTask.levelsLeft = currentTask.levelsLeft - 1;
-    refrTask.filter = currentTask.filter * glm::sqrt(mat->colorTransparent);
-    stack[ptr] = refrTask;
-    ++ptr;
+      float Rs = (idx2 * cosi - idx1 * cost) / (idx2 * cosi + idx1 * cost);
+      Rs = Rs * Rs;
+
+      R = (Rp + Rs) * 0.5f;
+      T = 1 - R;
+    }
+
+    if (isReflective)
+    {
+      const glm::fvec3 reflOrig = result.point + interpolatedNormal * EPSILON;
+      const glm::fvec3 reflDir = reflectionDirection(interpolatedNormal, currentTask.outRay.direction);
+
+      reflTask.outRay = Ray(reflOrig, reflDir);
+      reflTask.levelsLeft = currentTask.levelsLeft - 1;
+      reflTask.filter = currentTask.filter * material.colorSpecular * R;
+      stack[stackPtr] = reflTask;
+      ++stackPtr;
+    }
+
+    if (isRefractive)
+    {
+      float idx1 = AIR_INDEX;
+      float idx2 = AIR_INDEX;
+
+      if (glm::dot(currentTask.outRay.direction, interpolatedNormal) < 0.f)
+        idx2 = material.refrIdx;
+      else
+        idx1 = material.refrIdx;
+
+      const glm::fvec3 transOrig = result.point - interpolatedNormal * EPSILON;
+      const glm::fvec3 transDir = refractionDirection(interpolatedNormal, currentTask.outRay.direction, idx1, idx2);
+
+      refrTask.outRay = Ray(transOrig, transDir);
+      refrTask.levelsLeft = currentTask.levelsLeft - 1;
+      refrTask.filter = currentTask.filter * material.colorTransparent * T;
+      stack[stackPtr] = refrTask;
+      ++stackPtr;
+    }
   }
 
   return color;
