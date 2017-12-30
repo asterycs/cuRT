@@ -155,7 +155,7 @@ enum HitType
     CLOSEST
 };
 
-template <bool debug, HitType hitType>
+template <const bool debug, HitType hitType>
 __device__
 RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles)
 {
@@ -311,7 +311,7 @@ __device__ inline constexpr unsigned int cpow(const unsigned int base, const uns
     return (exponent == 0) ? 1 : (base * cpow(base, exponent - 1));
 }
 
-template <bool debug, typename curandStateType>
+template <const bool debug, typename curandStateType>
 __device__ glm::fvec3 rayTrace(\
     const Node* bvh, \
     const Ray& ray, \
@@ -378,24 +378,28 @@ __device__ glm::fvec3 rayTrace(\
       float idx1 = AIR_INDEX;
       float idx2 = AIR_INDEX;
 
-      if (glm::dot(ray.direction, interpolatedNormal) < 0.f)
+      if (glm::dot(currentTask.outRay.direction, interpolatedNormal) < 0.f)
         idx2 = material.refrIdx;
       else
         idx1 = material.refrIdx;
 
       // Transmittance and reflection according to fresnel
-      const float cosi = fabsf(glm::dot(ray.direction, interpolatedNormal));
-      const float sin2t = (AIR_INDEX / material.refrIdx) * (idx1 / idx2) * (1 - cosi * cosi);
-      const float cost = sqrt(1 - sin2t);
+      const float cosi = fabsf(glm::dot(currentTask.outRay.direction, interpolatedNormal));
+      const float sin2t = (idx1 / idx2) * (idx1 / idx2) * (1 - cosi * cosi);
 
-      float Rp = (idx1 * cosi - idx2 * cost) / (idx1 * cosi + idx2 * cost);
-      Rp = Rp * Rp;
+      if (sin2t <= 1.f)
+      {
+        const float cost = sqrt(1 - sin2t);
 
-      float Rs = (idx2 * cosi - idx1 * cost) / (idx2 * cosi + idx1 * cost);
-      Rs = Rs * Rs;
+        float Rs = (idx1 * cosi - idx2 * cost) / (idx1 * cosi + idx2 * cost);
+        Rs = Rs * Rs;
 
-      R = (Rp + Rs) * 0.5f;
-      T = 1 - R;
+        float Rp = (idx2 * cosi - idx1 * cost) / (idx2 * cosi + idx1 * cost);
+        Rp = Rp * Rp;
+
+        R = (Rs + Rp) * 0.5f;
+        T = 1 - R;
+      }
     }
 
     if (isReflective)
@@ -513,7 +517,7 @@ cudaDebugRay(\
 
 template <typename curandStateType>
 __global__ void
-__launch_bounds__(2 * BLOCKWIDTH * BLOCKWIDTH, 8)
+//__launch_bounds__(2 * BLOCKWIDTH * BLOCKWIDTH, 8)
 cudaRender(\
     const cudaSurfaceObject_t canvas, \
     const glm::ivec2 canvasSize, \
@@ -527,10 +531,12 @@ cudaRender(\
     curandStateType* curandStateDevYPtr, \
     const Node* bvh)
 {
-  const int x = threadIdx.x + blockIdx.x * blockDim.x;
-  const int y = threadIdx.y + blockIdx.y * blockDim.y;
+  const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (x >= canvasSize.x || y >= canvasSize.y)
+  const int x = idx % canvasSize.x;
+  const int y = idx / canvasSize.x;
+
+  if (y >= canvasSize.y)
     return;
 
   glm::vec2 nic = camera.normalizedImageCoordinateFromPixelCoordinate(glm::ivec2(x, y), canvasSize);
@@ -538,6 +544,9 @@ cudaRender(\
   const float ar = (float) canvasSize.x/canvasSize.y;
 
   Ray ray = camera.generateRay(nic, ar);
+
+  curandStateType state1 = curandStateDevXPtr[idx];
+  curandStateType state2 = curandStateDevYPtr[idx];
 
   glm::fvec3 color = rayTrace<false>(\
       bvh,
@@ -548,8 +557,11 @@ cudaRender(\
       materials, \
       triangleMaterialIds, \
       light, \
-      curandStateDevXPtr[x + canvasSize.x * y], \
-      curandStateDevYPtr[x + canvasSize.x * y]);
+      state1, \
+      state2);
+
+  curandStateDevXPtr[idx] = state1;
+  curandStateDevYPtr[idx] = state2;
 
   writeToCanvas(x, y, canvas, canvasSize, color);
 
@@ -564,20 +576,22 @@ cudaTestRnd(\
     curandStateType* curandStateDevXPtr, \
     curandStateType* curandStateDevYPtr)
 {
-  const int x = threadIdx.x + blockIdx.x * blockDim.x;
-  const int y = threadIdx.y + blockIdx.y * blockDim.y;
+  const int idx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (x >= canvasSize.x || y >= canvasSize.y)
+  const int x = idx % canvasSize.x;
+  const int y = idx / canvasSize.x;
+
+  if (y >= canvasSize.y)
     return;
 
-  curandStateType localState1 = curandStateDevXPtr[x + y * canvasSize.x];
-  curandStateType localState2 = curandStateDevYPtr[x + y * canvasSize.x];
+  curandStateType localState1 = curandStateDevXPtr[idx];
+  curandStateType localState2 = curandStateDevYPtr[idx];
 
   float r = curand_uniform(&localState1);
-  float g = curand_uniform(&localState1);
+  float g = curand_uniform(&localState2);
 
-  curandStateDevXPtr[x + y * canvasSize.x] = localState1;
-  curandStateDevYPtr[x + y * canvasSize.x] = localState2;
+  curandStateDevXPtr[idx] = localState1;
+  curandStateDevYPtr[idx] = localState2;
 
   writeToCanvas(x, y, canvas, canvasSize, glm::fvec3(r, g, 0.f));
 
@@ -664,8 +678,10 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
 
   int meshes = model.getNMeshes();
 
-  dim3 block(BLOCKWIDTH, BLOCKWIDTH);
-  dim3 grid( (canvasSize.x+ block.x - 1) / block.x, (canvasSize.y + block.y - 1) / block.y);
+  //dim3 block(BLOCKWIDTH, BLOCKWIDTH);
+  //dim3 grid( (canvasSize.x+ block.x - 1) / block.x, (canvasSize.y + block.y - 1) / block.y);
+  dim3 block(BLOCKWIDTH * BLOCKWIDTH);
+  dim3 grid( (canvasSize.x * canvasSize.y + block.x - 1) / block.x);
 
   cudaRender<<<grid, block>>>(\
       surfaceObj, \
@@ -679,6 +695,7 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
       curandStateDevXRaw, \
       curandStateDevYRaw, \
       model.getDeviceBVH());
+
 
   //cudaTestRnd<<<grid, block>>>(surfaceObj, canvasSize, curandStateDevXRaw, curandStateDevYRaw);
 
