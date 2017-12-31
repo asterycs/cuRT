@@ -21,12 +21,12 @@
 #define SECONDARY_RAYS 3
 #define AIR_INDEX 1.f
 
-__device__ bool bboxIntersect(const AABB& box, const Ray& ray, float& t)
+__device__ bool bboxIntersect(const AABB& box, const glm::fvec3 origin, const glm::fvec3 inverseDirection, float& t)
 {
   glm::fvec3 tmin(-BIGT), tmax(BIGT);
 
-  const glm::fvec3 tdmin = (box.min - ray.origin) * ray.inverseDirection;
-  const glm::fvec3 tdmax = (box.max - ray.origin) * ray.inverseDirection;
+  const glm::fvec3 tdmin = (box.min - origin) * inverseDirection;
+  const glm::fvec3 tdmax = (box.max - origin) * inverseDirection;
 
   tmin = glm::min(tdmin, tdmax);
   tmax = glm::max(tdmin, tdmax);
@@ -115,9 +115,10 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
   int minTriIdx = -1;
   glm::fvec2 minUV;
   RaycastResult result;
+  const glm::fvec3 inverseDirection = glm::fvec3(1.f) / ray.direction;
 
   float hitt = BIGT;
-  const bool hit = bboxIntersect(bvh[0].bbox, ray, hitt);
+  const bool hit = bboxIntersect(bvh[0].bbox, ray.origin, inverseDirection, hitt);
 
   if (!hit)
     return result;
@@ -179,8 +180,9 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
       const AABB rightBox = bvh[currentNode.rightIndex].bbox;
 
       float leftt, rightt;
-      bool leftHit = bboxIntersect(leftBox, ray, leftt);
-      bool rightHit = bboxIntersect(rightBox, ray, rightt);
+
+      bool leftHit = bboxIntersect(leftBox, ray.origin, inverseDirection, leftt);
+      bool rightHit = bboxIntersect(rightBox, ray.origin, inverseDirection, rightt);
 
       if (leftHit && leftt < tMin)
       {
@@ -612,6 +614,7 @@ CudaRenderer::CudaRenderer() : curandStateDevVecX(), curandStateDevVecY()
   }
 
   CUDA_CHECK(cudaSetDevice(cudaDevices[0]));
+  CUDA_CHECK(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1));
 
   resize(glm::ivec2(WWIDTH, WHEIGHT));
 }
