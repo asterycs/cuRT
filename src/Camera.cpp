@@ -109,12 +109,12 @@ CUDA_HOST_DEVICE glm::fvec3 Camera::worldPositionFromNormalizedImageCoordinate(c
   return position + d;
 }
 
-CUDA_HOST_DEVICE glm::fvec2 Camera::normalizedImageCoordinateFromPixelCoordinate(const glm::ivec2& pixel, const glm::ivec2& size) const
+CUDA_HOST_DEVICE glm::fvec2 Camera::normalizedImageCoordinateFromPixelCoordinate(const unsigned int x, const unsigned int y, const glm::ivec2 size) const
 {
   float pixelWidth  = 2.f / (size.x + 1);
   float pixelHeight = 2.f / (size.y + 1);
 
-  return glm::fvec2(-1.f + 0.5f * pixelWidth + pixel.x * pixelWidth, -1.f + 0.5f * pixelHeight + pixel.y * pixelHeight);
+  return glm::fvec2(-1.f + 0.5f * pixelWidth + x * pixelWidth, -1.f + 0.5f * pixelHeight + y * pixelHeight);
 }
 
 CUDA_HOST_DEVICE float Camera::getHAngle() const

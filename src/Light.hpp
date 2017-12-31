@@ -56,22 +56,16 @@ private:
 template<typename curandState>
 CUDA_DEVICE void Light::sample(float& pdf, glm::vec3& point, curandState& randomState1, curandState& randomState2) const
 {
-  curandState localState1 = randomState1;
-  curandState localState2 = randomState2;
+  const float x = curand_uniform(&randomState1);
+  const float y = curand_uniform(&randomState2);
 
-  float x = curand_uniform(&localState1);
-  float y = curand_uniform(&localState2);
-
-  randomState1 = localState1;
-  randomState2 = localState2;
-
-  glm::fvec2 span = glm::fvec2(x * 2.f, y * 2.f);
+  const glm::fvec2 span = glm::fvec2(x * 2.f, y * 2.f);
   glm::fvec2 rf(span.x - 1.f, span.y - 1.f);
 
   pdf = 1.0f / (size.x * size.y);
 
-  glm::fvec2 rndClip(rf.x * size.x, rf.y * size.y);
-  glm::fvec4 p4 = modelMat * glm::vec4(rndClip, 0, 1);
+  const glm::fvec2 rndClip(rf.x * size.x, rf.y * size.y);
+  const glm::fvec4 p4 = modelMat * glm::vec4(rndClip, 0, 1);
   point = glm::fvec3(p4);
 }
 

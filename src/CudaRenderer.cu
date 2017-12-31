@@ -18,7 +18,7 @@
 #define EPSILON 0.00001f
 #define BIGT 99999.f
 #define SHADOWSAMPLING 8
-#define SECONDARY_RAYS 1
+#define SECONDARY_RAYS 3
 #define AIR_INDEX 1.f
 
 __device__ bool bboxIntersect(const AABB& box, const Ray& ray, float& t)
@@ -44,14 +44,14 @@ __device__ void debug_vec3(const glm::vec3& v)
   printf("%f %f %f\n", v.x, v.y, v.z);
 }
 
-inline __device__ glm::fvec3 reflectionDirection(const glm::vec3& normal, const glm::vec3& incoming) {
+inline __device__ glm::fvec3 reflectionDirection(const glm::vec3 normal, const glm::vec3 incoming) {
 
   const float cosT = glm::dot(incoming, normal);
 
   return incoming - 2 * cosT * normal;
 }
 
-inline __device__ glm::fvec3 refractionDirection(const glm::vec3& normal, const glm::vec3& incoming, const float index1, const float index2) {
+inline __device__ glm::fvec3 refractionDirection(const glm::vec3 normal, const glm::vec3 incoming, const float index1, const float index2) {
 
   const float cosInAng = fabsf(glm::dot(incoming, normal));
   const float sin2t = (index1 / index2) * (index1 / index2) * (1 - cosInAng * cosInAng);
@@ -62,15 +62,15 @@ inline __device__ glm::fvec3 refractionDirection(const glm::vec3& normal, const 
     return index1 / index2 * incoming + (index1 / index2 * cosInAng - sqrt(1 - sin2t)) * normal;
 }
 
-__device__ bool rayTriangleIntersection(const Ray& ray, const Triangle& triangle, float& t, glm::fvec2& uv)
+__device__ bool rayTriangleIntersection(const Ray ray, const Triangle triangle, float& t, glm::fvec2& uv)
 {
   /* Möller-Trumbore algorithm
    * https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
    */
 
-  const glm::vec3& vertex0 = triangle.vertices[0].p;
-  const glm::vec3& vertex1 = triangle.vertices[1].p;
-  const glm::vec3& vertex2 = triangle.vertices[2].p;
+  const glm::vec3 vertex0 = triangle.vertices[0].p;
+  const glm::vec3 vertex1 = triangle.vertices[1].p;
+  const glm::vec3 vertex2 = triangle.vertices[2].p;
 
   const glm::fvec3 h = glm::cross(ray.direction, vertex2 - vertex0);
   const float a = glm::dot(vertex1 - vertex0, h);
@@ -109,7 +109,7 @@ enum HitType
 
 template <const bool debug, const HitType hitType>
 __device__
-RaycastResult rayCast(const Ray& ray, const Node* bvh, const Triangle* triangles)
+RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
 {
   float tMin = BIGT;
   int minTriIdx = -1;
@@ -217,10 +217,12 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
 {
   glm::fvec3 brightness(0.f);
 
-  //if (!light.isEnabled())
+  //if (!light.isEnabled()) // Surprisingly slow
   //  return brightness;
 
   const Triangle hitTriangle = triangles[result.triangleIdx];
+  const glm::fvec3 interpolatedNormal = hitTriangle.normal(result.uv);
+  const glm::fvec3 shadowRayOrigin = result.point + interpolatedNormal * EPSILON;
 
   glm::fvec3 lightSamplePoint;
   float pdf;
@@ -229,9 +231,6 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
   {
     light.sample(pdf, lightSamplePoint, curandState1, curandState2);
 
-    const glm::fvec3 interpolatedNormal = hitTriangle.normal(result.uv);
-
-    const glm::fvec3 shadowRayOrigin = result.point + interpolatedNormal * EPSILON;
     const glm::fvec3 shadowRayDir = lightSamplePoint - shadowRayOrigin;
 
     const float maxT = glm::length(shadowRayDir); // Distance to the light
@@ -247,7 +246,6 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
       const float cosL = __saturatef(glm::dot(-shadowRayDirNormalized, light.getNormal()));
 
       brightness += __fdividef(1.f, (maxT * maxT * pdf)) * light.getEmission() * cosL * cosOmega;
-
     }
   }
 
@@ -459,7 +457,7 @@ cudaDebugRay(\
     curandStateType* curandStateDevYPtr, \
     const Node* bvh)
 {
-  const glm::fvec2 nic = camera.normalizedImageCoordinateFromPixelCoordinate(pixelPos, size);
+  const glm::fvec2 nic = camera.normalizedImageCoordinateFromPixelCoordinate(pixelPos.x, pixelPos.y, size);
   const float ar = (float) size.x / size.y;
   const Ray ray = camera.generateRay(nic, ar);
 
@@ -481,7 +479,7 @@ cudaDebugRay(\
 
 template <typename curandStateType>
 __global__ void
-//__launch_bounds__(2 * BLOCKWIDTH * BLOCKWIDTH, 8)
+__launch_bounds__(BLOCKWIDTH * BLOCKWIDTH, 16)
 cudaRender(\
     const cudaSurfaceObject_t canvas, \
     const glm::ivec2 canvasSize, \
@@ -501,7 +499,7 @@ cudaRender(\
   if (x >= canvasSize.x || y >= canvasSize.y)
     return;
 
-  glm::vec2 nic = camera.normalizedImageCoordinateFromPixelCoordinate(glm::ivec2(x, y), canvasSize);
+  glm::vec2 nic = camera.normalizedImageCoordinateFromPixelCoordinate(x, y, canvasSize);
 
   Ray ray = camera.generateRay(nic, (float) canvasSize.x/canvasSize.y);
 

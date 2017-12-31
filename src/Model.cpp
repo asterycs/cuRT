@@ -423,6 +423,7 @@ bool splitNode(const Node& node, Node& leftChild, Node& rightChild, const SplitM
 		const unsigned int a = node.bbox.maxAxis();
     sortTrisOnAxis(node, a, triangles);
 
+#pragma omp parallel for
     for (int s = 1; s < node.nTri - 1; ++s)
     {
       const AABB lBox = computeBB(node.startTri, node.startTri + s, triangles);
@@ -430,6 +431,7 @@ bool splitNode(const Node& node, Node& leftChild, Node& rightChild, const SplitM
 
       const float currentCost = lBox.area() * s + rBox.area() * (node.nTri - s);
 
+#pragma omp critical
       if (currentCost < minCost)
       {
         minCost = currentCost;
