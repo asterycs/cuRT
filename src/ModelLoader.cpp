@@ -14,7 +14,6 @@ Model ModelLoader::loadOBJ(const std::string& path)
         aiProcess_CalcTangentSpace       |
         aiProcess_JoinIdenticalVertices  |
         aiProcess_Triangulate            |
-        aiProcess_SortByPType            |
         aiProcess_GenNormals);
 
   if (!model)

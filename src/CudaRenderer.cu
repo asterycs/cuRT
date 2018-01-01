@@ -15,7 +15,8 @@
 
 
 #define BLOCKWIDTH 8
-#define EPSILON 0.000001f
+#define INTERSECT_EPSILON 0.0000001f
+#define OFFSET_EPSILON 0.00001f
 #define BIGT 99999.f
 #define SHADOWSAMPLING 8
 #define SECONDARY_RAYS 3
@@ -69,7 +70,7 @@ __device__ bool rayTriangleIntersection(const Ray ray, const Triangle& triangle,
   const glm::fvec3 h = glm::cross(ray.direction, vertex2 - vertex0);
   const float a = glm::dot(vertex1 - vertex0, h);
 
-  if (a > -EPSILON && a < EPSILON)
+  if (a > -INTERSECT_EPSILON && a < INTERSECT_EPSILON)
     return false;
 
   const float f = __fdividef(1.f, a);
@@ -86,7 +87,7 @@ __device__ bool rayTriangleIntersection(const Ray ray, const Triangle& triangle,
 
   t = f * glm::dot(vertex2 - vertex0, q);
 
-  if (t > EPSILON)
+  if (t > INTERSECT_EPSILON)
   {
     uv = glm::fvec2(u, v);
     return true;
@@ -218,7 +219,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
 
   const Triangle hitTriangle = triangles[result.triangleIdx];
   const glm::fvec3 interpolatedNormal = hitTriangle.normal(result.uv);
-  const glm::fvec3 shadowRayOrigin = result.point + interpolatedNormal * EPSILON;
+  const glm::fvec3 shadowRayOrigin = result.point + interpolatedNormal * OFFSET_EPSILON;
 
   glm::fvec3 lightSamplePoint;
   float pdf;
@@ -236,7 +237,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
 
     const  RaycastResult shadowResult = rayCast<false, HitType::ANY>(shadowRay, bvh, triangles);
 
-    if ((shadowResult && shadowResult.t >= maxT - EPSILON) || !shadowResult)
+    if ((shadowResult && shadowResult.t >= maxT - OFFSET_EPSILON) || !shadowResult)
     {
       const float cosOmega = __saturatef(glm::dot(shadowRayDirNormalized, interpolatedNormal));
       const float cosL = __saturatef(glm::dot(-shadowRayDirNormalized, light.getNormal()));
@@ -319,74 +320,87 @@ __device__ glm::fvec3 rayTrace(\
     const glm::fvec3 brightness = areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2);
     color += currentTask.filter * material.colorDiffuse / glm::pi<float>() * brightness;
 
-    if (currentTask.levelsLeft == 0)
-      continue;
-
-    RaycastTask reflTask;
-    RaycastTask refrTask;
-
-    const bool isReflective = material.colorSpecular.x != 0.f || material.colorSpecular.y != 0.f || material.colorSpecular.z != 0.f;
-    const bool isRefractive = material.colorTransparent.x != 0.f || material.colorTransparent.y != 0.f || material.colorTransparent.z != 0.f;
-
-    float R = 1.f;
-    float T = 0.f;
-
-    if (isRefractive)
+    if (material.shadingMode == material.GORAUD)
     {
-      float idx1 = AIR_INDEX;
-      float idx2 = AIR_INDEX;
+      continue;
+    }
 
-      if (inside)
-        idx1 = material.refrIdx;
-      else
-        idx2 = material.refrIdx;
+    // Phong's specular highlight
+    const glm::fvec3 rm = reflectionDirection(interpolatedNormal, glm::normalize(light.getPosition() - result.point));
+    color += material.colorSpecular * powf(__saturatef(glm::dot(rm, currentTask.outRay.direction)), material.shininess);
 
-      // Transmittance and reflection according to fresnel
-      const float cosi = fabsf(glm::dot(currentTask.outRay.direction, interpolatedNormal));
-      const float sin2t = (idx1 / idx2) * (idx1 / idx2) * (1 - cosi * cosi);
+    if (material.shadingMode == material.FRESNEL)
+    {
 
-      if (sin2t <= 1.f)
+      if (currentTask.levelsLeft == 0)
+        continue;
+
+      RaycastTask reflTask;
+      RaycastTask refrTask;
+
+      const bool isReflective = material.colorSpecular.x != 0.f || material.colorSpecular.y != 0.f || material.colorSpecular.z != 0.f;
+      const bool isRefractive = material.colorTransparent.x != 0.f || material.colorTransparent.y != 0.f || material.colorTransparent.z != 0.f;
+
+      float R = 1.f;
+      float T = 0.f;
+
+      if (isRefractive)
       {
-        const float cost = sqrt(1 - sin2t);
-
-        float Rs = (idx1 * cosi - idx2 * cost) / (idx1 * cosi + idx2 * cost);
-        Rs = Rs * Rs;
-
-        float Rp = (idx2 * cosi - idx1 * cost) / (idx2 * cosi + idx1 * cost);
-        Rp = Rp * Rp;
-
-        R = (Rs + Rp) * 0.5f;
-        T = 1 - R;
-
         float idx1 = AIR_INDEX;
         float idx2 = AIR_INDEX;
 
-        if (glm::dot(currentTask.outRay.direction, interpolatedNormal) < 0.f)
-          idx2 = material.refrIdx;
-        else
+        if (inside)
           idx1 = material.refrIdx;
+        else
+          idx2 = material.refrIdx;
 
-        const glm::fvec3 transOrig = result.point - interpolatedNormal * EPSILON;
-        const glm::fvec3 transDir = refractionDirection(cosi, sin2t, interpolatedNormal, currentTask.outRay.direction, idx1, idx2);
+        // Transmittance and reflection according to fresnel
+        const float cosi = fabsf(glm::dot(currentTask.outRay.direction, interpolatedNormal));
+        const float sin2t = (idx1 / idx2) * (idx1 / idx2) * (1 - cosi * cosi);
 
-        refrTask.outRay = Ray(transOrig, transDir);
-        refrTask.levelsLeft = currentTask.levelsLeft - 1;
-        refrTask.filter = currentTask.filter * material.colorTransparent * T;
-        stack[stackPtr] = refrTask;
+        if (sin2t <= 1.f)
+        {
+          const float cost = sqrt(1 - sin2t);
+
+          float Rs = (idx1 * cosi - idx2 * cost) / (idx1 * cosi + idx2 * cost);
+          Rs = Rs * Rs;
+
+          float Rp = (idx2 * cosi - idx1 * cost) / (idx2 * cosi + idx1 * cost);
+          Rp = Rp * Rp;
+
+          R = (Rs + Rp) * 0.5f;
+          T = 1 - R;
+
+          float idx1 = AIR_INDEX;
+          float idx2 = AIR_INDEX;
+
+          if (glm::dot(currentTask.outRay.direction, interpolatedNormal) < 0.f)
+            idx2 = material.refrIdx;
+          else
+            idx1 = material.refrIdx;
+
+          const glm::fvec3 transOrig = result.point - interpolatedNormal * OFFSET_EPSILON;
+          const glm::fvec3 transDir = refractionDirection(cosi, sin2t, interpolatedNormal, currentTask.outRay.direction, idx1, idx2);
+
+          refrTask.outRay = Ray(transOrig, transDir);
+          refrTask.levelsLeft = currentTask.levelsLeft - 1;
+          refrTask.filter = currentTask.filter * material.colorTransparent * T;
+          stack[stackPtr] = refrTask;
+          ++stackPtr;
+        }
+      }
+
+      if (isReflective)
+      {
+        const glm::fvec3 reflOrig = result.point + interpolatedNormal * OFFSET_EPSILON;
+        const glm::fvec3 reflDir = reflectionDirection(interpolatedNormal, currentTask.outRay.direction);
+
+        reflTask.outRay = Ray(reflOrig, reflDir);
+        reflTask.levelsLeft = currentTask.levelsLeft - 1;
+        reflTask.filter = currentTask.filter * material.colorSpecular * R;
+        stack[stackPtr] = reflTask;
         ++stackPtr;
       }
-    }
-
-    if (isReflective)
-    {
-      const glm::fvec3 reflOrig = result.point + interpolatedNormal * EPSILON;
-      const glm::fvec3 reflDir = reflectionDirection(interpolatedNormal, currentTask.outRay.direction);
-
-      reflTask.outRay = Ray(reflOrig, reflDir);
-      reflTask.levelsLeft = currentTask.levelsLeft - 1;
-      reflTask.filter = currentTask.filter * material.colorSpecular * R;
-      stack[stackPtr] = reflTask;
-      ++stackPtr;
     }
 
   }

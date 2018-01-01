@@ -61,8 +61,14 @@ struct Material
   glm::fvec3 colorSpecular;
   glm::fvec3 colorTransparent;
 
+  float shininess;
   float refrIdx;
-  //float shininess;
+  enum
+  {
+    GORAUD,
+    PHONG,
+    FRESNEL
+  } shadingMode;
 
   // TextureIndex?
 

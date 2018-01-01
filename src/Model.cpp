@@ -63,53 +63,29 @@ void Model::initialize(const aiScene *scene)
       mat.Get(AI_MATKEY_COLOR_TRANSPARENT, aiTransparent);
 
       mat.Get(AI_MATKEY_REFRACTI,          material.refrIdx);
-     // mat.Get(AI_MATKEY_SHININESS,         material.shininess);
+      mat.Get(AI_MATKEY_SHININESS,         material.shininess);
 
       material.colorAmbient     = ai2glm3f(aiAmbient);
       material.colorDiffuse     = ai2glm3f(aiDiffuse);
       //material.colorEmission    = ai2glm3f(aiEmission);
       material.colorSpecular    = ai2glm3f(aiSpecular);
       material.colorTransparent = glm::fvec3(1.f) - ai2glm3f(aiTransparent);
-/*
-      enum aiShadingMode sm;
+
+      int sm;
       mat.Get(AI_MATKEY_SHADING_MODEL, sm);
 
       switch (sm)
       {
-      case aiShadingMode_Flat:
-        std::cout << "flat" << std::endl;
-        break;
       case aiShadingMode_Gouraud:
-        std::cout << "goraud" << std::endl;
-        break;
-      case aiShadingMode_Phong:
-        std::cout << "phong" << std::endl;
-        break;
-      case aiShadingMode_Blinn:
-        std::cout << "blinn" << std::endl;
-        break;
-      case aiShadingMode_Toon:
-        std::cout << "toon" << std::endl;
-        break;
-      case aiShadingMode_OrenNayar:
-        std::cout << "orennayar" << std::endl;
-        break;
-      case aiShadingMode_Minnaert:
-        std::cout << "minnaert" << std::endl;
-        break;
-      case aiShadingMode_CookTorrance:
-        std::cout << "cook" << std::endl;
-        break;
-      case aiShadingMode_NoShading:
-        std::cout << "noshading" << std::endl;
+        material.shadingMode = material.GORAUD;
         break;
       case aiShadingMode_Fresnel:
-        std::cout << "fresnel" << std::endl;
+        material.shadingMode = material.FRESNEL;
         break;
       default:
-        std::cout << sm << std::endl;
+        material.shadingMode = material.PHONG;
       }
-*/
+
 
       std::vector<unsigned int> vertexIds(mesh->mNumFaces * 3);
       std::iota(vertexIds.begin(), vertexIds.end(), triangleOffset * 3);
