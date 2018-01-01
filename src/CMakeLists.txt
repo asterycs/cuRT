@@ -11,13 +11,13 @@ source_group("shaders" FILES SHADERS)
 
 add_executable(graphx ${CXX_SRC} ${CXX_CU_SRC} ${CU_SRC})
 add_dependencies(graphx assimp)
-if (ENABLE_CUDA)
-    set_property(TARGET graphx PROPERTY CUDA_STANDARD 14)
-    set_property(TARGET graphx PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-    set_property(TARGET graphx PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-endif(ENABLE_CUDA)
 
 target_link_libraries(graphx ${LINK_LIBS})
 add_dependencies(graphx copy_shader_files copy_benchmark_script)
+
+if (ENABLE_CUDA)
+    set_target_properties(graphx PROPERTIES CUDA_STANDARD 14 CUDA_SEPARABLE_COMPILATION ON CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+endif(ENABLE_CUDA)
+
 
 

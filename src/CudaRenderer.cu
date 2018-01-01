@@ -15,7 +15,7 @@
 
 
 #define BLOCKWIDTH 8
-#define EPSILON 0.00001f
+#define EPSILON 0.000001f
 #define BIGT 99999.f
 #define SHADOWSAMPLING 8
 #define SECONDARY_RAYS 3
@@ -606,7 +606,6 @@ CudaRenderer::CudaRenderer() : curandStateDevVecX(), curandStateDevVecY()
   }
 
   CUDA_CHECK(cudaSetDevice(cudaDevices[0]));
-  CUDA_CHECK(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1));
 
   resize(glm::ivec2(WWIDTH, WHEIGHT));
 }
