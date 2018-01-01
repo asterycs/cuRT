@@ -51,14 +51,8 @@ inline __device__ glm::fvec3 reflectionDirection(const glm::vec3 normal, const g
   return incoming - 2 * cosT * normal;
 }
 
-inline __device__ glm::fvec3 refractionDirection(const glm::vec3 normal, const glm::vec3 incoming, const float index1, const float index2) {
-
-  const float cosInAng = fabsf(glm::dot(incoming, normal));
-  const float sin2t = (index1 / index2) * (index1 / index2) * (1 - cosInAng * cosInAng);
-
-  if (sin2t > 1)
-    return reflectionDirection(normal, incoming);
-  else
+inline __device__ glm::fvec3 refractionDirection(const float cosInAng, const float sin2t, const glm::vec3 normal, const glm::vec3 incoming, const float index1, const float index2)
+{
     return index1 / index2 * incoming + (index1 / index2 * cosInAng - sqrt(1 - sin2t)) * normal;
 }
 
@@ -363,6 +357,23 @@ __device__ glm::fvec3 rayTrace(\
 
         R = (Rs + Rp) * 0.5f;
         T = 1 - R;
+
+        float idx1 = AIR_INDEX;
+        float idx2 = AIR_INDEX;
+
+        if (glm::dot(currentTask.outRay.direction, interpolatedNormal) < 0.f)
+          idx2 = material.refrIdx;
+        else
+          idx1 = material.refrIdx;
+
+        const glm::fvec3 transOrig = result.point - interpolatedNormal * EPSILON;
+        const glm::fvec3 transDir = refractionDirection(cosi, sin2t, interpolatedNormal, currentTask.outRay.direction, idx1, idx2);
+
+        refrTask.outRay = Ray(transOrig, transDir);
+        refrTask.levelsLeft = currentTask.levelsLeft - 1;
+        refrTask.filter = currentTask.filter * material.colorTransparent * T;
+        stack[stackPtr] = refrTask;
+        ++stackPtr;
       }
     }
 
@@ -378,25 +389,6 @@ __device__ glm::fvec3 rayTrace(\
       ++stackPtr;
     }
 
-    if (isRefractive)
-    {
-      float idx1 = AIR_INDEX;
-      float idx2 = AIR_INDEX;
-
-      if (glm::dot(currentTask.outRay.direction, interpolatedNormal) < 0.f)
-        idx2 = material.refrIdx;
-      else
-        idx1 = material.refrIdx;
-
-      const glm::fvec3 transOrig = result.point - interpolatedNormal * EPSILON;
-      const glm::fvec3 transDir = refractionDirection(interpolatedNormal, currentTask.outRay.direction, idx1, idx2);
-
-      refrTask.outRay = Ray(transOrig, transDir);
-      refrTask.levelsLeft = currentTask.levelsLeft - 1;
-      refrTask.filter = currentTask.filter * material.colorTransparent * T;
-      stack[stackPtr] = refrTask;
-      ++stackPtr;
-    }
   }
 
   return color;
