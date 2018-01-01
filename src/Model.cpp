@@ -4,6 +4,7 @@
 #include <memory>
 #include <stack>
 #include <cmath>
+#include <parallel/algorithm>
 
 #include <glm/gtx/string_cast.hpp>
 
@@ -69,6 +70,46 @@ void Model::initialize(const aiScene *scene)
       //material.colorEmission    = ai2glm3f(aiEmission);
       material.colorSpecular    = ai2glm3f(aiSpecular);
       material.colorTransparent = glm::fvec3(1.f) - ai2glm3f(aiTransparent);
+/*
+      enum aiShadingMode sm;
+      mat.Get(AI_MATKEY_SHADING_MODEL, sm);
+
+      switch (sm)
+      {
+      case aiShadingMode_Flat:
+        std::cout << "flat" << std::endl;
+        break;
+      case aiShadingMode_Gouraud:
+        std::cout << "goraud" << std::endl;
+        break;
+      case aiShadingMode_Phong:
+        std::cout << "phong" << std::endl;
+        break;
+      case aiShadingMode_Blinn:
+        std::cout << "blinn" << std::endl;
+        break;
+      case aiShadingMode_Toon:
+        std::cout << "toon" << std::endl;
+        break;
+      case aiShadingMode_OrenNayar:
+        std::cout << "orennayar" << std::endl;
+        break;
+      case aiShadingMode_Minnaert:
+        std::cout << "minnaert" << std::endl;
+        break;
+      case aiShadingMode_CookTorrance:
+        std::cout << "cook" << std::endl;
+        break;
+      case aiShadingMode_NoShading:
+        std::cout << "noshading" << std::endl;
+        break;
+      case aiShadingMode_Fresnel:
+        std::cout << "fresnel" << std::endl;
+        break;
+      default:
+        std::cout << sm << std::endl;
+      }
+*/
 
       std::vector<unsigned int> vertexIds(mesh->mNumFaces * 3);
       std::iota(vertexIds.begin(), vertexIds.end(), triangleOffset * 3);
@@ -383,7 +424,7 @@ void sortTrisOnAxis(const Node& node, const unsigned int axis, std::vector<std::
   const auto start = triangles.begin() + node.startTri;
   const auto end = start + node.nTri;
 
-  std::sort(start, end, [axis](std::pair<Triangle, unsigned int>& l, std::pair<Triangle, unsigned int>& r)
+  __gnu_parallel::sort(start, end, [axis](const std::pair<Triangle, unsigned int>& l, const std::pair<Triangle, unsigned int>& r)
       {
         return l.first.center()[axis] < r.first.center()[axis];
       });
@@ -417,27 +458,41 @@ bool splitNode(const Node& node, Node& leftChild, Node& rightChild, const SplitM
 
 		float minCost = std::numeric_limits<float>::max();
 		int minStep = -1;
-		AABB minLbox;
-		AABB minRbox;
 
 		const unsigned int a = node.bbox.maxAxis();
     sortTrisOnAxis(node, a, triangles);
 
+    AABB fBox = computeBB(node.startTri, node.startTri + 1, triangles);
+    std::vector<AABB> fBoxes(node.nTri - 1);
+
+    const int fStart = node.startTri;
+    const int fEnd = node.startTri + node.nTri - 1;
+
+    for (int i = fStart; i < fEnd; ++i)
+    {
+      fBox.add(triangles[i].first);
+      fBoxes[i - node.startTri] = fBox;
+    }
+
+    AABB rBox = computeBB(node.startTri + node.nTri - 1, node.startTri + node.nTri, triangles);
+    std::vector<AABB> rBoxes(node.nTri - 1);
+
+    for (int i = fEnd - 1; i > fStart - 1; --i)
+    {
+      rBox.add(triangles[i].first);
+      rBoxes[i - node.startTri] = rBox;
+    }
+
 #pragma omp parallel for
     for (int s = 1; s < node.nTri - 1; ++s)
     {
-      const AABB lBox = computeBB(node.startTri, node.startTri + s, triangles);
-      const AABB rBox = computeBB(node.startTri + s, node.startTri + node.nTri, triangles);
-
-      const float currentCost = lBox.area() * s + rBox.area() * (node.nTri - s);
+      const float currentCost = fBoxes[s - 1].area() * s + rBoxes[s - 1].area() * (node.nTri - s);
 
 #pragma omp critical
       if (currentCost < minCost)
       {
         minCost = currentCost;
         minStep = s;
-        minLbox = lBox;
-        minRbox = rBox;
       }
     }
 
@@ -445,11 +500,11 @@ bool splitNode(const Node& node, Node& leftChild, Node& rightChild, const SplitM
 		{
 			leftChild.startTri = node.startTri;
 			leftChild.nTri = minStep;
-			leftChild.bbox = minLbox;
+			leftChild.bbox = fBoxes[minStep - 1];
 
 			rightChild.startTri = node.startTri + minStep;
 			rightChild.nTri = node.nTri - minStep;
-			rightChild.bbox = minRbox;
+			rightChild.bbox = rBoxes[minStep - 1];
 
 			return true;
 		}else
@@ -511,9 +566,9 @@ std::vector<std::pair<Triangle, unsigned int>> Model::createBVH(const enum Split
     parentIndices.pop();
 
     Node left, right;
-    const bool splitted = splitNode(node, left, right, splitMode, triIdx, MAX_TRIS_PER_LEAF);
+    const bool wasSplit = splitNode(node, left, right, splitMode, triIdx, MAX_TRIS_PER_LEAF);
 
-    if (splitted)
+    if (wasSplit)
     {
       stack.push(right);
       stack.push(left);

@@ -56,7 +56,7 @@ inline __device__ glm::fvec3 refractionDirection(const float cosInAng, const flo
     return index1 / index2 * incoming + (index1 / index2 * cosInAng - sqrt(1 - sin2t)) * normal;
 }
 
-__device__ bool rayTriangleIntersection(const Ray ray, const Triangle triangle, float& t, glm::fvec2& uv)
+__device__ bool rayTriangleIntersection(const Ray ray, const Triangle& triangle, float& t, glm::fvec2& uv)
 {
   /* Möller-Trumbore algorithm
    * https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm

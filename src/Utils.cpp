@@ -95,3 +95,15 @@ CUDA_FUNCTION unsigned int AABB::maxAxis() const
 
   return 0;
 }
+
+CUDA_FUNCTION void AABB::add(const Triangle& t)
+{
+  for (auto& v : t.vertices)
+    add(v.p);
+}
+
+CUDA_FUNCTION void AABB::add(const glm::fvec3 v)
+{
+  min = glm::min(min, v);
+  max = glm::max(max, v);
+}

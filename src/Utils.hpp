@@ -78,7 +78,9 @@ struct AABB
 
   CUDA_FUNCTION AABB(const glm::fvec3& a, const glm::fvec3& b) : max(glm::max(a, b)), min(glm::min(a, b)) { }
   CUDA_FUNCTION AABB() : max(0.f), min(0.f) { }
-  
+
+  CUDA_FUNCTION void add(const Triangle& v);
+  CUDA_FUNCTION void add(const glm::fvec3 v);
   CUDA_FUNCTION float area() const;
   CUDA_FUNCTION unsigned int maxAxis() const;
 };
