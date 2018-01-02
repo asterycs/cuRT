@@ -67,8 +67,12 @@ void App::MainLoop()
       glcontext.draw(glmodel, gllight, camera);
       break;
 #ifdef ENABLE_CUDA
-      case ActiveRenderer::CUDA: // Draw image to OpenGL texture and draw with opengl
-      cudaRenderer.renderToCanvas(glcanvas, camera, glmodel, gllight);
+      case ActiveRenderer::RAYTRACER: // Draw image to OpenGL texture and draw with opengl
+      cudaRenderer.rayTraceToCanvas(glcanvas, camera, glmodel, gllight);
+      glcontext.draw(glcanvas);
+      break;
+      case ActiveRenderer::PATHTRACER:
+      cudaRenderer.pathTraceToCanvas(glcanvas, camera, glmodel, gllight);
       glcontext.draw(glcanvas);
       break;
 #endif
@@ -231,7 +235,7 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
   }
   else if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
   {
-    activeRenderer = static_cast<App::ActiveRenderer>((activeRenderer + 1) % 2);
+    activeRenderer = static_cast<App::ActiveRenderer>((activeRenderer + 1) % 3);
     debugPoints.clear();
   }
   else if (key == GLFW_KEY_O && action == GLFW_PRESS)
@@ -262,7 +266,7 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
     drawDebug = !drawDebug;
 #ifdef ENABLE_CUDA
     const glm::ivec2 pos = glcontext.getCursorPos();
-    debugPoints = cudaRenderer.debugRay(pos, glcanvas.getSize(), camera, glmodel, gllight);
+    debugPoints = cudaRenderer.debugRayTrace(pos, glcanvas.getSize(), camera, glmodel, gllight);
 #endif    
   }
 
@@ -354,7 +358,7 @@ void App::renderToFile(const std::string& sceneFile, const std::string& /*outfil
   cudaEventCreate(&stop);
 
   cudaEventRecord(start);
-  cudaRenderer.renderToCanvas(glcanvas, camera, glmodel, gllight);
+  cudaRenderer.rayTraceToCanvas(glcanvas, camera, glmodel, gllight);
   cudaEventRecord(stop);
 
   cudaEventSynchronize(stop);

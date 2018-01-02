@@ -69,7 +69,7 @@ void Model::initialize(const aiScene *scene)
       material.colorDiffuse     = ai2glm3f(aiDiffuse);
       //material.colorEmission    = ai2glm3f(aiEmission);
       material.colorSpecular    = ai2glm3f(aiSpecular);
-      material.colorTransparent = glm::fvec3(1.f) - ai2glm3f(aiTransparent);
+      material.colorTransparent = glm::sqrt(glm::fvec3(1.f) - ai2glm3f(aiTransparent));
 
       int sm;
       mat.Get(AI_MATKEY_SHADING_MODEL, sm);

@@ -488,7 +488,7 @@ cudaDebugRay(\
 template <typename curandStateType>
 __global__ void
 __launch_bounds__(BLOCKWIDTH * BLOCKWIDTH, 16)
-cudaRender(\
+rayTraceKernel(\
     const cudaSurfaceObject_t canvas, \
     const glm::ivec2 canvasSize, \
     const Triangle* triangles, \
@@ -605,7 +605,7 @@ void CudaRenderer::resize(const glm::ivec2& size)
 }
 
 
-CudaRenderer::CudaRenderer() : curandStateDevVecX(), curandStateDevVecY()
+CudaRenderer::CudaRenderer() : curandStateDevVecX(), curandStateDevVecY(), lastCamera(), lastSize()
 {
   unsigned int cudaDeviceCount = 0;
   int cudaDevices[8];
@@ -629,7 +629,52 @@ CudaRenderer::~CudaRenderer()
 
 }
 
-void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light)
+void CudaRenderer::pathTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light)
+{
+  if (model.getNTriangles() == 0)
+    return;
+
+  const bool diffCamera = std::memcmp(&camera, &lastCamera, sizeof(Camera));
+  const bool diffSize = canvas.getSize() == lastSize;
+
+  if (diffCamera != 0 || diffSize != 0)
+  {
+    lastCamera = camera;
+    lastSize = canvas.getSize();
+    //reset();
+  }
+
+  const glm::ivec2& canvasSize = canvas.getSize();
+
+  auto* curandStateDevXRaw = thrust::raw_pointer_cast(&curandStateDevVecX[0]);
+  auto* curandStateDevYRaw = thrust::raw_pointer_cast(&curandStateDevVecY[0]);
+
+  auto surfaceObj = canvas.getCudaMappedSurfaceObject();
+  Triangle* devTriangles = model.getMappedCudaTrianglePtr();
+
+  dim3 block(BLOCKWIDTH, BLOCKWIDTH);
+  dim3 grid( (canvasSize.x+ block.x - 1) / block.x, (canvasSize.y + block.y - 1) / block.y);
+
+
+  rayTraceKernel<<<grid, block>>>(\
+      surfaceObj, \
+      canvasSize, \
+      devTriangles, \
+      model.getNTriangles(), \
+      camera, \
+      model.getCudaMaterialsPtr(), \
+      model.getCudaTriangleMaterialIdsPtr(), \
+      light.getLight(), \
+      curandStateDevXRaw, \
+      curandStateDevYRaw, \
+      model.getDeviceBVH());
+
+
+  model.unmapCudaTrianglePtr();
+  canvas.cudaUnmap();
+}
+
+void CudaRenderer::rayTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light)
 {
   if (model.getNTriangles() == 0)
     return;
@@ -642,14 +687,12 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
   auto surfaceObj = canvas.getCudaMappedSurfaceObject();
   Triangle* devTriangles = model.getMappedCudaTrianglePtr();
 
-  int meshes = model.getNMeshes();
-
   dim3 block(BLOCKWIDTH, BLOCKWIDTH);
   dim3 grid( (canvasSize.x+ block.x - 1) / block.x, (canvasSize.y + block.y - 1) / block.y);
   //dim3 block(BLOCKWIDTH * BLOCKWIDTH);
   //dim3 grid( (canvasSize.x * canvasSize.y + block.x - 1) / block.x);
 
-  cudaRender<<<grid, block>>>(\
+  rayTraceKernel<<<grid, block>>>(\
       surfaceObj, \
       canvasSize, \
       devTriangles, \
@@ -670,7 +713,7 @@ void CudaRenderer::renderToCanvas(GLCanvas& canvas, const Camera& camera, GLMode
   canvas.cudaUnmap();
 }
 
-std::vector<glm::fvec3> CudaRenderer::debugRay(const glm::ivec2 pixelPos, const glm::ivec2 size, const Camera& camera, GLModel& model, GLLight& light)
+std::vector<glm::fvec3> CudaRenderer::debugRayTrace(const glm::ivec2 pixelPos, const glm::ivec2 size, const Camera& camera, GLModel& model, GLLight& light)
 {
   if (model.getNTriangles() == 0)
     return std::vector<glm::fvec3>();

@@ -42,7 +42,8 @@ private:
     enum ActiveRenderer {
       GL
 #ifdef ENABLE_CUDA
-      , CUDA
+      , RAYTRACER,
+      PATHTRACER
 #endif
     };
     

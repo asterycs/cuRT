@@ -23,13 +23,17 @@ public:
   CudaRenderer();
   ~CudaRenderer();
 
-  std::vector<glm::fvec3> debugRay(const glm::ivec2 pixelPos, const glm::ivec2 size, const Camera& camera, GLModel& model, GLLight& light);
-  void renderToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light);
+  std::vector<glm::fvec3> debugRayTrace(const glm::ivec2 pixelPos, const glm::ivec2 size, const Camera& camera, GLModel& model, GLLight& light);
+  void rayTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light);
+  void pathTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light);
   void resize(const glm::ivec2& size);
 
 private:
   thrust::device_vector<CURAND_TYPE> curandStateDevVecX; // For area light sampling
   thrust::device_vector<CURAND_TYPE> curandStateDevVecY;
+
+  Camera lastCamera;
+  glm::ivec2 lastSize;
 };
 
 #endif // CUDARENDERER_HPP
