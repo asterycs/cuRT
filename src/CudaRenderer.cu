@@ -104,9 +104,9 @@ enum HitType
 
 template <const bool debug, const HitType hitType>
 __device__
-RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
+RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles, const float maxT)
 {
-  float tMin = BIGT;
+  float tMin = maxT;
   int minTriIdx = -1;
   glm::fvec2 minUV;
   RaycastResult result;
@@ -219,7 +219,7 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
 
 
 template<const bool debug, typename curandState>
-__device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, const Light& light, const Node* bvh, const RaycastResult& result, const Triangle* triangles, const unsigned int nTriangles, curandState& curandState1, curandState& curandState2, glm::fvec3* hitPoints, unsigned int& posPtr)
+__device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, const Light& light, const Node* bvh, const RaycastResult& result, const Triangle* triangles, const unsigned int nTriangles, curandState& curandState1, curandState& curandState2, glm::fvec3* hitPoints = nullptr, unsigned int* posPtr = nullptr)
 {
   glm::fvec3 brightness(0.f);
 
@@ -235,6 +235,12 @@ __device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, cons
   {
     light.sample(pdf, lightSamplePoint, curandState1, curandState2);
 
+    if (debug)
+    {
+      hitPoints[*posPtr++] = shadowRayOrigin;
+      hitPoints[*posPtr++] = lightSamplePoint;
+    }
+
     const glm::fvec3 shadowRayDir = lightSamplePoint - shadowRayOrigin;
 
     const float maxT = glm::length(shadowRayDir); // Distance to the light
@@ -242,15 +248,10 @@ __device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, cons
 
     const Ray shadowRay(shadowRayOrigin, shadowRayDirNormalized);
 
-    const  RaycastResult shadowResult = rayCast<debug, HitType::ANY>(shadowRay, bvh, triangles);
+    const  RaycastResult shadowResult = rayCast<debug, HitType::ANY>(shadowRay, bvh, triangles, maxT);
 
     if ((shadowResult && shadowResult.t >= maxT + OFFSET_EPSILON) || !shadowResult)
     {
-      if (debug)
-      {
-        hitPoints[posPtr++] = shadowRayOrigin;
-        hitPoints[posPtr++] = lightSamplePoint;
-      }
       const float cosOmega = __saturatef(glm::dot(shadowRayDirNormalized, interpolatedNormal));
       const float cosL = __saturatef(glm::dot(-shadowRayDirNormalized, light.getNormal()));
 
@@ -306,7 +307,7 @@ __device__ glm::fvec3 rayTrace(\
     --stackPtr;
 
     const RaycastTask currentTask = stack[stackPtr];
-    const RaycastResult result = rayCast<debug, HitType::CLOSEST>(currentTask.outRay, bvh, triangles);
+    const RaycastResult result = rayCast<debug, HitType::CLOSEST>(currentTask.outRay, bvh, triangles, BIGT);
 
     if (!result)
       continue;
@@ -329,7 +330,14 @@ __device__ glm::fvec3 rayTrace(\
       inside = false;
 
     color += currentTask.filter * material.colorAmbient * 0.25f;
-    const glm::fvec3 brightness = areaLightShading<debug>(interpolatedNormal, light, bvh, result, triangles, nTriangles, curandState1, curandState2, hitPoints, posPtr);
+
+    glm::fvec3 brightness;
+
+    if (debug)
+      brightness = areaLightShading<debug>(interpolatedNormal, light, bvh, result, triangles, nTriangles, curandState1, curandState2, hitPoints, &posPtr);
+    else
+      brightness = areaLightShading<debug>(interpolatedNormal, light, bvh, result, triangles, nTriangles, curandState1, curandState2);
+
     color += currentTask.filter * material.colorDiffuse / glm::pi<float>() * brightness;
 
     if (material.shadingMode == material.GORAUD)
