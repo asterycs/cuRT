@@ -22,6 +22,13 @@
 #define SECONDARY_RAYS 3
 #define AIR_INDEX 1.f
 
+#define REFLECTIVE_BIT 0x80000000
+#define REFRACTIVE_BIT 0x40000000
+#define INSIDE_BIT 0x20000000
+
+#define LEFT_HIT_BIT 0x80000000
+#define RIGHT_HIT_BIT 0x40000000
+
 __device__ bool bboxIntersect(const AABB& box, const glm::fvec3 origin, const glm::fvec3 inverseDirection, float& t)
 {
   glm::fvec3 tmin(-BIGT), tmax(BIGT);
@@ -64,28 +71,30 @@ __device__ bool rayTriangleIntersection(const Ray ray, const Triangle& triangle,
    */
 
   const glm::vec3 vertex0 = triangle.vertices[0].p;
-  const glm::vec3 vertex1 = triangle.vertices[1].p;
-  const glm::vec3 vertex2 = triangle.vertices[2].p;
 
-  const glm::fvec3 h = glm::cross(ray.direction, vertex2 - vertex0);
-  const float a = glm::dot(vertex1 - vertex0, h);
+  const glm::fvec3 edge1 = triangle.vertices[1].p - vertex0;
+  const glm::fvec3 edge2 = triangle.vertices[2].p - vertex0;
+
+  const glm::fvec3 h = glm::cross(ray.direction, edge2);
+  const float a = glm::dot(edge1, h);
 
   if (a > -INTERSECT_EPSILON && a < INTERSECT_EPSILON)
     return false;
 
   const float f = __fdividef(1.f, a);
-  const float u = f * glm::dot(ray.origin - vertex0, h);
+  const glm::fvec3 s = ray.origin - vertex0;
+  const float u = f * glm::dot(s, h);
 
   if (u < 0.f || u > 1.0f)
     return false;
 
-  const glm::fvec3 q = glm::cross(ray.origin - vertex0, vertex1 - vertex0);
+  const glm::fvec3 q = glm::cross(s, edge1);
   const float v = f * glm::dot(ray.direction, q);
 
   if (v < 0.0 || u + v > 1.0)
     return false;
 
-  t = f * glm::dot(vertex2 - vertex0, q);
+  t = f * glm::dot(edge2, q);
 
   if (t > INTERSECT_EPSILON)
   {
@@ -112,14 +121,8 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles,
   RaycastResult result;
   const glm::fvec3 inverseDirection = glm::fvec3(1.f) / ray.direction;
 
-  float hitt = BIGT;
-  const bool hit = bboxIntersect(bvh[0].bbox, ray.origin, inverseDirection, hitt);
-
-  if (!hit)
-    return result;
-
   int ptr = 0;
-  int stack[16] { 0 };
+  unsigned int stack[8] { 0 };
   int i = -1;
   float t = 0;
   glm::fvec2 uv;
@@ -127,7 +130,7 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles,
 
   while (ptr >= 0)
   {
-    int currentNodeIdx = stack[ptr];
+    unsigned int currentNodeIdx = stack[ptr];
     Node currentNode = bvh[currentNodeIdx];
 
 
@@ -179,16 +182,16 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles,
 
       float leftt, rightt;
 
-      bool leftHit = bboxIntersect(leftBox, ray.origin, inverseDirection, leftt);
-      bool rightHit = bboxIntersect(rightBox, ray.origin, inverseDirection, rightt);
+      unsigned int hitMask = bboxIntersect(leftBox, ray.origin, inverseDirection, leftt) ? LEFT_HIT_BIT : 0x00;
+      hitMask = bboxIntersect(rightBox, ray.origin, inverseDirection, rightt) ? hitMask | RIGHT_HIT_BIT : hitMask;
 
-      if (leftHit && leftt < tMin)
+      if ((hitMask & LEFT_HIT_BIT) != 0x00 && leftt < tMin)
       {
         stack[ptr] = currentNodeIdx + 1;
         ++ptr;
       }
 
-      if (rightHit && rightt < tMin)
+      if ((hitMask & RIGHT_HIT_BIT) != 0x00 && rightt < tMin)
       {
         stack[ptr] = currentNode.rightIndex;
         ++ptr;
@@ -218,8 +221,8 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles,
 }
 
 
-template<const bool debug, typename curandState>
-__device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, const Light& light, const Node* bvh, const RaycastResult& result, const Triangle* triangles, const unsigned int nTriangles, curandState& curandState1, curandState& curandState2, glm::fvec3* hitPoints = nullptr, unsigned int* posPtr = nullptr)
+template<typename curandState>
+__device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, const Light& light, const Node* bvh, const RaycastResult& result, const Triangle* triangles, curandState& curandState1, curandState& curandState2)
 {
   glm::fvec3 brightness(0.f);
 
@@ -235,12 +238,6 @@ __device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, cons
   {
     light.sample(pdf, lightSamplePoint, curandState1, curandState2);
 
-    if (debug)
-    {
-      hitPoints[*posPtr++] = shadowRayOrigin;
-      hitPoints[*posPtr++] = lightSamplePoint;
-    }
-
     const glm::fvec3 shadowRayDir = lightSamplePoint - shadowRayOrigin;
 
     const float maxT = glm::length(shadowRayDir); // Distance to the light
@@ -248,7 +245,7 @@ __device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, cons
 
     const Ray shadowRay(shadowRayOrigin, shadowRayDirNormalized);
 
-    const  RaycastResult shadowResult = rayCast<debug, HitType::ANY>(shadowRay, bvh, triangles, maxT);
+    const  RaycastResult shadowResult = rayCast<false, HitType::ANY>(shadowRay, bvh, triangles, maxT);
 
     if ((shadowResult && shadowResult.t >= maxT + OFFSET_EPSILON) || !shadowResult)
     {
@@ -267,7 +264,7 @@ __device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, cons
 struct RaycastTask
 {
   Ray outRay;
-  unsigned int levelsLeft;
+  unsigned short levelsLeft;
   glm::fvec3 filter;
 };
 
@@ -281,7 +278,6 @@ __device__ glm::fvec3 rayTrace(\
     const Node* bvh, \
     const Ray& ray, \
     const Triangle* triangles, \
-    const int nTriangles, \
     const Camera camera, \
     const Material* materials, \
     const unsigned int* triangleMaterialIds, \
@@ -294,7 +290,7 @@ __device__ glm::fvec3 rayTrace(\
   RaycastTask stack[stackSize];
   glm::fvec3 color(0.f);
   int stackPtr = 0;
-  unsigned int posPtr = 0;
+  int posPtr = 0; // Probably optimized away when not used
 
   // Primary ray
   stack[stackPtr].outRay = ray;
@@ -307,7 +303,7 @@ __device__ glm::fvec3 rayTrace(\
     --stackPtr;
 
     const RaycastTask currentTask = stack[stackPtr];
-    const RaycastResult result = rayCast<debug, HitType::CLOSEST>(currentTask.outRay, bvh, triangles, BIGT);
+    const RaycastResult result = rayCast<false, HitType::CLOSEST>(currentTask.outRay, bvh, triangles, BIGT);
 
     if (!result)
       continue;
@@ -322,22 +318,16 @@ __device__ glm::fvec3 rayTrace(\
     const Material material = materials[triangleMaterialIds[result.triangleIdx]];
     glm::fvec3 interpolatedNormal = triangle.normal(result.uv);
 
-    bool inside = true;
+    unsigned int mask = INSIDE_BIT;
 
     if (glm::dot(interpolatedNormal, currentTask.outRay.direction) > 0.f)
-      interpolatedNormal = -interpolatedNormal;
+      interpolatedNormal = -interpolatedNormal;  // We are inside an object. Flip the normal.
     else
-      inside = false;
+      mask = 0x00; // We are outside. Unset bit.
 
     color += currentTask.filter * material.colorAmbient * 0.25f;
 
-    glm::fvec3 brightness;
-
-    if (debug)
-      brightness = areaLightShading<debug>(interpolatedNormal, light, bvh, result, triangles, nTriangles, curandState1, curandState2, hitPoints, &posPtr);
-    else
-      brightness = areaLightShading<debug>(interpolatedNormal, light, bvh, result, triangles, nTriangles, curandState1, curandState2);
-
+    const glm::fvec3 brightness = areaLightShading(interpolatedNormal, light, bvh, result, triangles, curandState1, curandState2);
     color += currentTask.filter * material.colorDiffuse / glm::pi<float>() * brightness;
 
     if (material.shadingMode == material.GORAUD)
@@ -346,7 +336,7 @@ __device__ glm::fvec3 rayTrace(\
     }
 
     // Phong's specular highlight
-    if (!inside)
+    if ((mask & INSIDE_BIT) == 0x00)
     {
       const glm::fvec3 rm = reflectionDirection(interpolatedNormal, glm::normalize(light.getPosition() - result.point));
       color += material.colorSpecular * powf(__saturatef(glm::dot(rm, currentTask.outRay.direction)), material.shininess);
@@ -358,21 +348,28 @@ __device__ glm::fvec3 rayTrace(\
       if (currentTask.levelsLeft == 0)
         continue;
 
-      RaycastTask reflTask;
-      RaycastTask refrTask;
+      RaycastTask newTask; // Used twice for pushing
 
-      const bool isReflective = material.colorSpecular.x != 0.f || material.colorSpecular.y != 0.f || material.colorSpecular.z != 0.f;
-      const bool isRefractive = material.colorTransparent.x != 0.f || material.colorTransparent.y != 0.f || material.colorTransparent.z != 0.f;
+      //const bool isReflective = material.colorSpecular.x != 0.f || material.colorSpecular.y != 0.f || material.colorSpecular.z != 0.f;
+      //const bool isRefractive = material.colorTransparent.x != 0.f || material.colorTransparent.y != 0.f || material.colorTransparent.z != 0.f;
+
+      // Saves one register ~ 3 ms
+      mask = (material.colorSpecular.x != 0.f ||
+          material.colorSpecular.y != 0.f ||
+          material.colorSpecular.z != 0.f) ? REFLECTIVE_BIT | mask : mask;
+
+      mask = (material.colorTransparent.x != 0.f ||
+          material.colorTransparent.y != 0.f ||
+          material.colorTransparent.z != 0.f) ? REFRACTIVE_BIT | mask : mask;
 
       float R = 1.f;
-      float T = 0.f;
 
-      if (isRefractive)
+      if ((mask & REFRACTIVE_BIT) != 0x00) // Refractive
       {
         float idx1 = AIR_INDEX;
         float idx2 = AIR_INDEX;
 
-        if (inside)
+        if (glm::dot(currentTask.outRay.direction, interpolatedNormal) > 0.f)
           idx1 = material.refrIdx;
         else
           idx2 = material.refrIdx;
@@ -392,36 +389,27 @@ __device__ glm::fvec3 rayTrace(\
           Rp = Rp * Rp;
 
           R = (Rs + Rp) * 0.5f;
-          T = 1 - R;
-
-          float idx1 = AIR_INDEX;
-          float idx2 = AIR_INDEX;
-
-          if (glm::dot(currentTask.outRay.direction, interpolatedNormal) < 0.f)
-            idx2 = material.refrIdx;
-          else
-            idx1 = material.refrIdx;
 
           const glm::fvec3 transOrig = result.point - interpolatedNormal * OFFSET_EPSILON;
           const glm::fvec3 transDir = refractionDirection(cosi, sin2t, interpolatedNormal, currentTask.outRay.direction, idx1, idx2);
 
-          refrTask.outRay = Ray(transOrig, transDir);
-          refrTask.levelsLeft = currentTask.levelsLeft - 1;
-          refrTask.filter = currentTask.filter * material.colorTransparent * T;
-          stack[stackPtr] = refrTask;
+          newTask.outRay = Ray(transOrig, transDir);
+          newTask.levelsLeft = currentTask.levelsLeft - 1;
+          newTask.filter = currentTask.filter * material.colorTransparent * (1 - R);
+          stack[stackPtr] = newTask;
           ++stackPtr;
         }
       }
 
-      if (isReflective)
+      if ((mask & REFLECTIVE_BIT) != 0x00) // Reflective
       {
         const glm::fvec3 reflOrig = result.point + interpolatedNormal * OFFSET_EPSILON;
         const glm::fvec3 reflDir = reflectionDirection(interpolatedNormal, currentTask.outRay.direction);
 
-        reflTask.outRay = Ray(reflOrig, reflDir);
-        reflTask.levelsLeft = currentTask.levelsLeft - 1;
-        reflTask.filter = currentTask.filter * material.colorSpecular * R;
-        stack[stackPtr] = reflTask;
+        newTask.outRay = Ray(reflOrig, reflDir);
+        newTask.levelsLeft = currentTask.levelsLeft - 1;
+        newTask.filter = currentTask.filter * material.colorSpecular * R;
+        stack[stackPtr] = newTask;
         ++stackPtr;
       }
     }
@@ -465,7 +453,7 @@ __global__ void initRand(curandDirectionVectors64_t* sobolDirectionVectors, unsi
   state[x + size.x * y] = localState;
 }
 
-__device__ void writeToCanvas(const unsigned int x, const unsigned int y, const cudaSurfaceObject_t& surfaceObj, const glm::ivec2& canvasSize, const glm::vec3& data)
+__device__ void writeToCanvas(const unsigned int x, const unsigned int y, const cudaSurfaceObject_t surfaceObj, const glm::ivec2 canvasSize, const glm::vec3 data)
 {
   const float4 out = make_float4(data.x, data.y, data.z, 1.f);
   surf2Dwrite(out, surfaceObj, (canvasSize.x - 1 - x) * sizeof(out), y);
@@ -479,7 +467,6 @@ cudaDebugRay(\
     glm::fvec3* devPosPtr, \
     const glm::ivec2 size, \
     const Triangle* triangles, \
-    const int nTriangles, \
     const Camera camera, \
     const Material* materials, \
     const unsigned int* triangleMaterialIds, \
@@ -496,7 +483,6 @@ cudaDebugRay(\
       bvh,
       ray, \
       triangles, \
-      nTriangles, \
       camera, \
       materials, \
       triangleMaterialIds, \
@@ -510,12 +496,11 @@ cudaDebugRay(\
 
 template <typename curandStateType>
 __global__ void
-__launch_bounds__(BLOCKWIDTH * BLOCKWIDTH, 16)
+__launch_bounds__(BLOCKWIDTH * BLOCKWIDTH, 24)
 rayTraceKernel(\
     const cudaSurfaceObject_t canvas, \
     const glm::ivec2 canvasSize, \
     const Triangle* triangles, \
-    const int nTriangles, \
     const Camera camera, \
     const Material* materials, \
     const unsigned int* triangleMaterialIds, \
@@ -541,7 +526,6 @@ rayTraceKernel(\
       bvh,
       ray, \
       triangles, \
-      nTriangles, \
       camera, \
       materials, \
       triangleMaterialIds, \
@@ -690,7 +674,6 @@ void CudaRenderer::pathTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLM
       surfaceObj, \
       canvasSize, \
       devTriangles, \
-      model.getNTriangles(), \
       camera, \
       model.getCudaMaterialsPtr(), \
       model.getCudaTriangleMaterialIdsPtr(), \
@@ -726,7 +709,6 @@ void CudaRenderer::rayTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLMo
       surfaceObj, \
       canvasSize, \
       devTriangles, \
-      model.getNTriangles(), \
       camera, \
       model.getCudaMaterialsPtr(), \
       model.getCudaTriangleMaterialIdsPtr(), \
@@ -770,7 +752,6 @@ std::vector<glm::fvec3> CudaRenderer::debugRayTrace(const glm::ivec2 pixelPos, c
       devPosPtr, \
       size, \
       devTriangles, \
-      model.getNTriangles(), \
       camera, \
       model.getCudaMaterialsPtr(), \
       model.getCudaTriangleMaterialIdsPtr(), \
