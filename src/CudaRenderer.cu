@@ -119,8 +119,8 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
     return result;
 
   int ptr = 0;
-  int stack[8] { 0 };
-  int i = 999999;
+  int stack[16] { 0 };
+  int i = -1;
   float t = 0;
   glm::fvec2 uv;
   bool getNextNode = true;
@@ -198,6 +198,7 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
     if (getNextNode)
     {
       --ptr;
+      i = -1;
     }
 
   }
@@ -217,16 +218,14 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
 }
 
 
-template<typename curandState>
-__device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, const RaycastResult& result, const Triangle* triangles, const unsigned int nTriangles, curandState& curandState1, curandState& curandState2)
+template<const bool debug, typename curandState>
+__device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, const Light& light, const Node* bvh, const RaycastResult& result, const Triangle* triangles, const unsigned int nTriangles, curandState& curandState1, curandState& curandState2, glm::fvec3* hitPoints, unsigned int& posPtr)
 {
   glm::fvec3 brightness(0.f);
 
   //if (!light.isEnabled()) // Surprisingly slow
   //  return brightness;
 
-  const Triangle hitTriangle = triangles[result.triangleIdx];
-  const glm::fvec3 interpolatedNormal = hitTriangle.normal(result.uv);
   const glm::fvec3 shadowRayOrigin = result.point + interpolatedNormal * OFFSET_EPSILON;
 
   glm::fvec3 lightSamplePoint;
@@ -243,10 +242,15 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
 
     const Ray shadowRay(shadowRayOrigin, shadowRayDirNormalized);
 
-    const  RaycastResult shadowResult = rayCast<false, HitType::ANY>(shadowRay, bvh, triangles);
+    const  RaycastResult shadowResult = rayCast<debug, HitType::ANY>(shadowRay, bvh, triangles);
 
-    if ((shadowResult && shadowResult.t >= maxT - INTERSECT_EPSILON) || !shadowResult)
+    if ((shadowResult && shadowResult.t >= maxT + OFFSET_EPSILON) || !shadowResult)
     {
+      if (debug)
+      {
+        hitPoints[posPtr++] = shadowRayOrigin;
+        hitPoints[posPtr++] = lightSamplePoint;
+      }
       const float cosOmega = __saturatef(glm::dot(shadowRayDirNormalized, interpolatedNormal));
       const float cosL = __saturatef(glm::dot(-shadowRayDirNormalized, light.getNormal()));
 
@@ -325,7 +329,7 @@ __device__ glm::fvec3 rayTrace(\
       inside = false;
 
     color += currentTask.filter * material.colorAmbient * 0.25f;
-    const glm::fvec3 brightness = areaLightShading(light, bvh, result, triangles, nTriangles, curandState1, curandState2);
+    const glm::fvec3 brightness = areaLightShading<debug>(interpolatedNormal, light, bvh, result, triangles, nTriangles, curandState1, curandState2, hitPoints, posPtr);
     color += currentTask.filter * material.colorDiffuse / glm::pi<float>() * brightness;
 
     if (material.shadingMode == material.GORAUD)
@@ -615,7 +619,7 @@ void CudaRenderer::resize(const glm::ivec2& size)
   initRand<<<grid, block, 0, streams[0]>>>(0, curandStateDevXRaw, size);
   initRand<<<grid, block, 0, streams[1]>>>(5, curandStateDevYRaw, size);
 #endif
-  
+
   CUDA_CHECK(cudaStreamDestroy(streams[0]));
   CUDA_CHECK(cudaStreamDestroy(streams[1]));
 
@@ -747,7 +751,7 @@ std::vector<glm::fvec3> CudaRenderer::debugRayTrace(const glm::ivec2 pixelPos, c
   dim3 grid(1, 1);
 
   unsigned int secondaryVertices = std::pow(2u, SECONDARY_RAYS) == 1 ? 0 : std::pow(2u, SECONDARY_RAYS) * 2;
-  const int nVertices = 2 + secondaryVertices;
+  const int nVertices = (2 + secondaryVertices) * SHADOWSAMPLING;
 
   glm::fvec3* devPosPtr;
   CUDA_CHECK(cudaMalloc((void**) &devPosPtr, nVertices * sizeof(glm::fvec3)));
