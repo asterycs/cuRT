@@ -119,9 +119,11 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
     return result;
 
   int ptr = 0;
-  int stack[16] { 0 };
-
-  bool atLeaf = false;
+  int stack[8] { 0 };
+  int i = 999999;
+  float t = 0;
+  glm::fvec2 uv;
+  bool getNextNode = true;
 
   while (ptr >= 0)
   {
@@ -131,13 +133,7 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
 
     if (currentNode.rightIndex == -1)
     {
-      atLeaf = true;
-
-      if (!__all(atLeaf))
-        continue;
-
-      float t = 0;
-      glm::fvec2 uv;
+      getNextNode = false;
 
       if (debug)
       {
@@ -145,10 +141,10 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
         printf("\nHit bbox %d:\n", currentNodeIdx);
         printf("min: %f %f %f\n", b.min[0], b.min[1], b.min[2]);
         printf("max: %f %f %f\n", b.max[0], b.max[1], b.max[2]);
-        printf("StardIdx: %d, endIdx: %d, nTris: %d\n\n", currentNode.startTri, currentNode.startTri + currentNode.nTri, currentNode.nTri);
+        printf("StartIdx: %d, endIdx: %d, nTris: %d\n\n", currentNode.startTri, currentNode.startTri + currentNode.nTri, currentNode.nTri);
       }
 
-      for (int i = currentNode.startTri; i < currentNode.startTri + currentNode.nTri; ++i)
+      if (i >= currentNode.startTri && i < currentNode.startTri + currentNode.nTri)
       {
         if (rayTriangleIntersection(ray, triangles[i], t, uv))
         {
@@ -160,14 +156,21 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
             tMin = t;
             minTriIdx = i;
             minUV = uv;
-            
+
             if (hitType == HitType::ANY)
               break;
           }
         }
-      }
 
-      atLeaf = false;
+        ++i;
+
+        if (i >= currentNode.startTri + currentNode.nTri)
+          getNextNode = true;
+
+      }else
+      {
+        i = currentNode.startTri;
+      }
 
     }else
     {
@@ -191,7 +194,12 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles)
         ++ptr;
       }
     }
-    --ptr;
+
+    if (getNextNode)
+    {
+      --ptr;
+    }
+
   }
 
   if (minTriIdx == -1)
@@ -237,7 +245,7 @@ __device__ glm::fvec3 areaLightShading(const Light& light, const Node* bvh, cons
 
     const  RaycastResult shadowResult = rayCast<false, HitType::ANY>(shadowRay, bvh, triangles);
 
-    if ((shadowResult && shadowResult.t >= maxT - OFFSET_EPSILON) || !shadowResult)
+    if ((shadowResult && shadowResult.t >= maxT - INTERSECT_EPSILON) || !shadowResult)
     {
       const float cosOmega = __saturatef(glm::dot(shadowRayDirNormalized, interpolatedNormal));
       const float cosL = __saturatef(glm::dot(-shadowRayDirNormalized, light.getNormal()));
@@ -326,8 +334,11 @@ __device__ glm::fvec3 rayTrace(\
     }
 
     // Phong's specular highlight
-    const glm::fvec3 rm = reflectionDirection(interpolatedNormal, glm::normalize(light.getPosition() - result.point));
-    color += material.colorSpecular * powf(__saturatef(glm::dot(rm, currentTask.outRay.direction)), material.shininess);
+    if (!inside)
+    {
+      const glm::fvec3 rm = reflectionDirection(interpolatedNormal, glm::normalize(light.getPosition() - result.point));
+      color += material.colorSpecular * powf(__saturatef(glm::dot(rm, currentTask.outRay.direction)), material.shininess);
+    }
 
     if (material.shadingMode == material.FRESNEL)
     {
@@ -444,7 +455,7 @@ __global__ void initRand(curandDirectionVectors64_t* sobolDirectionVectors, unsi
 
 __device__ void writeToCanvas(const unsigned int x, const unsigned int y, const cudaSurfaceObject_t& surfaceObj, const glm::ivec2& canvasSize, const glm::vec3& data)
 {
-  float4 out = make_float4(data.x, data.y, data.z, 1.f);
+  const float4 out = make_float4(data.x, data.y, data.z, 1.f);
   surf2Dwrite(out, surfaceObj, (canvasSize.x - 1 - x) * sizeof(out), y);
   return;
 }
@@ -574,6 +585,10 @@ void CudaRenderer::resize(const glm::ivec2& size)
   dim3 block(BLOCKWIDTH, BLOCKWIDTH);
   dim3 grid( (size.x + block.x - 1) / block.x, (size.y + block.y - 1) / block.y);
 
+  cudaStream_t streams[2];
+  CUDA_CHECK(cudaStreamCreate(&streams[0]));
+  CUDA_CHECK(cudaStreamCreate(&streams[1]));
+
 #ifdef QUASIRANDOM
   curandDirectionVectors64_t* hostDirectionVectors64;
   unsigned long long int* hostScrambleConstants64;
@@ -590,17 +605,20 @@ void CudaRenderer::resize(const glm::ivec2& size)
   CUDA_CHECK(cudaMalloc((void **)&(devScrambleConstants64),              size.x * size.y * sizeof(unsigned long long int)));
   CUDA_CHECK(cudaMemcpy(devScrambleConstants64, hostScrambleConstants64, size.x * size.y * sizeof(unsigned long long int), cudaMemcpyHostToDevice));
   
-  initRand<<<grid, block>>>(devDirectionVectors64, devScrambleConstants64, curandStateDevXRaw, size);
-  initRand<<<grid, block>>>(devDirectionVectors64 + 10000, devScrambleConstants64, curandStateDevYRaw, size);
+  initRand<<<grid, block, 0, streams[0]>>>(devDirectionVectors64, devScrambleConstants64, curandStateDevXRaw, size);
+  initRand<<<grid, block, 0, streams[1]>>>(devDirectionVectors64 + 10000, devScrambleConstants64, curandStateDevYRaw, size);
   
   CUDA_CHECK(cudaFree(devDirectionVectors64));
   CUDA_CHECK(cudaFree(devScrambleConstants64));
 
 #else
-  initRand<<<grid, block>>>(0, curandStateDevXRaw, size);
-  initRand<<<grid, block>>>(5, curandStateDevYRaw, size);
+  initRand<<<grid, block, 0, streams[0]>>>(0, curandStateDevXRaw, size);
+  initRand<<<grid, block, 0, streams[1]>>>(5, curandStateDevYRaw, size);
 #endif
   
+  CUDA_CHECK(cudaStreamDestroy(streams[0]));
+  CUDA_CHECK(cudaStreamDestroy(streams[1]));
+
   CUDA_CHECK(cudaDeviceSynchronize());
 }
 
