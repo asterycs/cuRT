@@ -26,6 +26,8 @@ cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_CUDA=TRUE ..
 
 Select an .obj file to open by pressing O-key. Hit Enter to switch between CUDA raytracer and OpenGL renderer. Space places an area light looking in the camera's direction.
 
+The kernels have been optimized for the NVIDIA GTX 1060 3GB that I own.
+
 ### Current features:
 - OpenGL preview
     - Shadow maps

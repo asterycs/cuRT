@@ -119,7 +119,7 @@ void GLCanvas::resize(const glm::ivec2 newSize)
     NULL
   ));
   GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
-  CUDA_CHECK(cudaGraphicsGLRegisterImage(&cudaCanvasResource, textureID, GL_TEXTURE_2D, cudaGraphicsMapFlagsWriteDiscard));
+  CUDA_CHECK(cudaGraphicsGLRegisterImage(&cudaCanvasResource, textureID, GL_TEXTURE_2D, cudaGraphicsMapFlagsNone));
 }
 
 GLuint GLCanvas::getTextureID() const
