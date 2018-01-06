@@ -267,8 +267,8 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
 #ifdef ENABLE_CUDA
     const glm::ivec2 pos = glcontext.getCursorPos();
 
-    //debugPoints = cudaRenderer.debugRayTrace(pos, glcanvas.getSize(), camera, glmodel, gllight);
-      debugPoints = cudaRenderer.debugPathTrace(pos, glcanvas.getSize(), camera, glmodel, gllight);
+    debugPoints = cudaRenderer.debugRayTrace(pos, glcanvas.getSize(), camera, glmodel, gllight);
+    //  debugPoints = cudaRenderer.debugPathTrace(pos, glcanvas.getSize(), camera, glmodel, gllight);
 #endif    
   }
 

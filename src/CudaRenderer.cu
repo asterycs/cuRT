@@ -140,7 +140,7 @@ enum HitType
     CLOSEST
 };
 
-template <const bool debug, const HitType hitType>
+template <bool debug, const HitType hitType>
 __device__
 RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles, const float maxT)
 {
@@ -251,7 +251,7 @@ RaycastResult rayCast(const Ray ray, const Node* bvh, const Triangle* triangles,
 }
 
 
-template<const unsigned int samples, typename curandState>
+template<unsigned int samples, typename curandState>
 __device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, const Light& light, const Node* bvh, const RaycastResult& result, const Triangle* triangles, curandState& curandState1, curandState& curandState2)
 {
   glm::fvec3 brightness(0.f);
@@ -303,7 +303,7 @@ struct RaycastTask
   glm::fvec3 filter;
 };
 
-template <const bool debug, typename curandStateType>
+template <bool debug, typename curandStateType>
 __device__ glm::fvec3 rayTrace(\
     const Node* bvh, \
     const Ray& ray, \
@@ -333,7 +333,7 @@ __device__ glm::fvec3 rayTrace(\
     --stackPtr;
 
     const RaycastTask currentTask = stack[stackPtr];
-    const RaycastResult result = rayCast<debug, HitType::CLOSEST>(currentTask.outRay, bvh, triangles, BIGT);
+    const RaycastResult result = rayCast<false, HitType::CLOSEST>(currentTask.outRay, bvh, triangles, BIGT);
 
     if (!result)
       continue;
@@ -353,7 +353,7 @@ __device__ glm::fvec3 rayTrace(\
     if (glm::dot(interpolatedNormal, currentTask.outRay.direction) > 0.f)
       interpolatedNormal = -interpolatedNormal;  // We are inside an object. Flip the normal.
     else
-      mask = 0x00; // We are outside. Unset bit.
+      mask = 0x00000000; // We are outside. Unset bit.
 
     color += currentTask.filter * material.colorAmbient * 0.25f;
 
@@ -380,10 +380,6 @@ __device__ glm::fvec3 rayTrace(\
 
       RaycastTask newTask; // Used twice for pushing
 
-      //const bool isReflective = material.colorSpecular.x != 0.f || material.colorSpecular.y != 0.f || material.colorSpecular.z != 0.f;
-      //const bool isRefractive = material.colorTransparent.x != 0.f || material.colorTransparent.y != 0.f || material.colorTransparent.z != 0.f;
-
-      // Saves one register ~ 3 ms
       mask = (material.colorSpecular.x != 0.f ||
           material.colorSpecular.y != 0.f ||
           material.colorSpecular.z != 0.f) ? REFLECTIVE_BIT | mask : mask;
@@ -397,19 +393,23 @@ __device__ glm::fvec3 rayTrace(\
       if ((mask & REFRACTIVE_BIT) != 0x00) // Refractive
       {
         float idx1 = AIR_INDEX;
-        float idx2 = AIR_INDEX;
+        float idx2 = material.refrIdx;
 
-        if (glm::dot(currentTask.outRay.direction, interpolatedNormal) > 0.f)
-          idx1 = material.refrIdx;
+        float rat;
+
+        if ((mask & INSIDE_BIT) != 0x00) // inside
+          rat = __fdividef(idx1, idx2);
         else
-          idx2 = material.refrIdx;
+          rat = __fdividef(idx2, idx1);
+
+        // Something's not right here...
 
         // Transmittance and reflection according to fresnel
         const float cosi = fabsf(glm::dot(currentTask.outRay.direction, interpolatedNormal));
-        const float sin2t = (idx1 / idx2) * (idx1 / idx2) * (1 - cosi * cosi);
 
-        if (sin2t <= 1.f)
+        if (sinf(acosf(cosi)) <= rat) // Check for total internal reflection
         {
+          const float sin2t = fabs((idx1 / idx2) * (idx1 / idx2) * (1 - cosi * cosi));
           const float cost = sqrt(1 - sin2t);
 
           float Rs = (idx1 * cosi - idx2 * cost) / (idx1 * cosi + idx2 * cost);
