@@ -15,7 +15,7 @@ int main(int argc, char * argv[]) {
   options.add_options()
     ("b,batch",     "Batch render",         cxxopts::value<bool>(batch_render))
     ("r,renderer",  "Renderer type",        cxxopts::value<int>())
-    ("t,timeout",   "Path tracing timeout", cxxopts::value<float>())
+    ("p,paths",     "Number of paths",      cxxopts::value<int>())
     ("s,scene",     "Scene file",           cxxopts::value<std::string>(),  "FILE")
     ("o,output",    "Output file",          cxxopts::value<std::string>(),  "FILE");
 
@@ -55,16 +55,16 @@ int main(int argc, char * argv[]) {
       std::string scenefile = options["scene"].as<std::string>();
       std::string output = options["output"].as<std::string>();
       int renderer = options["renderer"].as<int>();
-      float timeout = 0;
+      int paths = 0;
 
       if (renderer == 1)
       {
-        if (!options.count("timeout"))
+        if (!options.count("paths"))
         {
-          std::cerr << "No timeout specified" << std::endl;
+          std::cerr << "Number of paths not specified" << std::endl;
           return 1;
         }else
-          timeout = options["timeout"].as<float>();
+          paths = options["paths"].as<int>();
       }
 
       try
@@ -77,7 +77,7 @@ int main(int argc, char * argv[]) {
           app.rayTraceToFile(scenefile, output);
           break;
         case 1:
-          app.pathTraceToFile(scenefile, output, timeout);
+          app.pathTraceToFile(scenefile, output, paths);
           break;
 
         default:

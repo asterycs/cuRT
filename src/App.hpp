@@ -38,7 +38,7 @@ public:
     void loadModel(const std::string& modelFile);
 
     void rayTraceToFile(const std::string& sceneFile, const std::string& outFile);
-    void pathTraceToFile(const std::string& sceneFile, const std::string& outFile, const float timeout);
+    void pathTraceToFile(const std::string& sceneFile, const std::string& outFile, const int paths);
 private:
     enum ActiveRenderer {
       GL

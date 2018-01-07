@@ -374,7 +374,7 @@ void App::rayTraceToFile(const std::string& sceneFile, const std::string& /*outf
   return;
 }
 
-void App::pathTraceToFile(const std::string& sceneFile, const std::string& /*outfile*/, const float timeout)
+void App::pathTraceToFile(const std::string& sceneFile, const std::string& /*outfile*/, const int paths)
 {
   loadSceneFile(sceneFile);
 
@@ -385,7 +385,7 @@ void App::pathTraceToFile(const std::string& sceneFile, const std::string& /*out
 
   float passedTime = 0.f;
 
-  while (passedTime < timeout)
+  for (int i = 0; i < paths; ++i)
   {
     cudaEventRecord(start);
     cudaRenderer.pathTraceToCanvas(glcanvas, camera, glmodel, gllight);
