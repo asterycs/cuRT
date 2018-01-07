@@ -37,7 +37,8 @@ public:
     void loadSceneFile(const std::string& filename);
     void loadModel(const std::string& modelFile);
 
-    void renderToFile(const std::string& sceneFile, const std::string& outFile);
+    void rayTraceToFile(const std::string& sceneFile, const std::string& outFile);
+    void pathTraceToFile(const std::string& sceneFile, const std::string& outFile, const float timeout);
 private:
     enum ActiveRenderer {
       GL

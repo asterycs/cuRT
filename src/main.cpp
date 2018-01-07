@@ -13,10 +13,11 @@ int main(int argc, char * argv[]) {
   options.positional_help("[optional args]");
 
   options.add_options()
-    ("b,batch",     "Batch render",  cxxopts::value<bool>(batch_render))
-    //("r,renderer",  "Renderer type", cxxopts::value<int>())
-    ("s,scene",     "Scene file",    cxxopts::value<std::string>(),  "FILE")
-    ("o,output",    "Output file",   cxxopts::value<std::string>(),  "FILE");
+    ("b,batch",     "Batch render",         cxxopts::value<bool>(batch_render))
+    ("r,renderer",  "Renderer type",        cxxopts::value<int>())
+    ("t,timeout",   "Path tracing timeout", cxxopts::value<float>())
+    ("s,scene",     "Scene file",           cxxopts::value<std::string>(),  "FILE")
+    ("o,output",    "Output file",          cxxopts::value<std::string>(),  "FILE");
 
 
     try
@@ -30,13 +31,12 @@ int main(int argc, char * argv[]) {
 
     if (batch_render)
     {
-      /*
+
       if (!options.count("renderer"))
       {
         std::cerr << "No renderer specified" << std::endl;
         return 1;
       }
-      */
 
       if (!options.count("scene"))
       {
@@ -54,13 +54,35 @@ int main(int argc, char * argv[]) {
 
       std::string scenefile = options["scene"].as<std::string>();
       std::string output = options["output"].as<std::string>();
+      int renderer = options["renderer"].as<int>();
+      float timeout = 0;
 
-
+      if (renderer == 1)
+      {
+        if (!options.count("timeout"))
+        {
+          std::cerr << "No timeout specified" << std::endl;
+          return 1;
+        }else
+          timeout = options["timeout"].as<float>();
+      }
 
       try
       {
         App& app = App::getInstance();
-        app.renderToFile(scenefile, output);
+
+        switch (renderer)
+        {
+        case 0:
+          app.rayTraceToFile(scenefile, output);
+          break;
+        case 1:
+          app.pathTraceToFile(scenefile, output, timeout);
+          break;
+
+        default:
+          std::cout << "Unknown renderer" << std::endl;
+        }
       }
       catch (std::exception& e)
       {

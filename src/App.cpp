@@ -237,6 +237,7 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
   {
     activeRenderer = static_cast<App::ActiveRenderer>((activeRenderer + 1) % 3);
     debugPoints.clear();
+    cudaRenderer.reset();
   }
   else if (key == GLFW_KEY_O && action == GLFW_PRESS)
   {
@@ -350,7 +351,7 @@ void App::loadSceneFile(const std::string& filename)
   std::cout << "Loaded scene file " << filename << std::endl;
 }
 
-void App::renderToFile(const std::string& sceneFile, const std::string& /*outfile*/)
+void App::rayTraceToFile(const std::string& sceneFile, const std::string& /*outfile*/)
 {
   loadSceneFile(sceneFile);
 
@@ -368,6 +369,36 @@ void App::renderToFile(const std::string& sceneFile, const std::string& /*outfil
   cudaEventElapsedTime(&millis, start, stop);
 
   std::cout << "Rendering time [ms]: " << millis << std::endl;
+#endif
+
+  return;
+}
+
+void App::pathTraceToFile(const std::string& sceneFile, const std::string& /*outfile*/, const float timeout)
+{
+  loadSceneFile(sceneFile);
+
+#ifdef ENABLE_CUDA
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+
+  float passedTime = 0.f;
+
+  while (passedTime < timeout)
+  {
+    cudaEventRecord(start);
+    cudaRenderer.pathTraceToCanvas(glcanvas, camera, glmodel, gllight);
+    cudaEventRecord(stop);
+
+    cudaEventSynchronize(stop);
+    float millis = 0;
+    cudaEventElapsedTime(&millis, start, stop);
+
+    passedTime += millis * 1e-3;
+  }
+
+  std::cout << "Rendering time [ms]: " << passedTime << std::endl;
 #endif
 
   return;

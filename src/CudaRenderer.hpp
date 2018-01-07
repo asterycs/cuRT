@@ -29,6 +29,7 @@ public:
   void rayTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light);
   void pathTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light);
   void resize(const glm::ivec2& size);
+  void reset();
 
 private:
   thrust::device_vector<CURAND_TYPE> curandStateDevVecX; // For area light sampling

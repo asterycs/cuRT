@@ -29,7 +29,20 @@
 #define LEFT_HIT_BIT 0x80000000
 #define RIGHT_HIT_BIT 0x40000000
 
-#define PATH_TRACE_BOUNCES 3
+#define PATH_TRACE_BOUNCES 6
+
+inline __device__ float fresnelReflectioncoefficient(const float sin2t, const float cosi, const float idx1, const float idx2)
+{
+  const float cost = sqrt(1 - sin2t);
+
+  float Rs = (idx1 * cosi - idx2 * cost) / (idx1 * cosi + idx2 * cost);
+  Rs = Rs * Rs;
+
+  float Rp = (idx2 * cosi - idx1 * cost) / (idx2 * cosi + idx1 * cost);
+  Rp = Rp * Rp;
+
+  return (Rs + Rp) * 0.5f;
+}
 
 __device__ glm::fmat3 getBasis(const glm::fvec3 n) {
 
@@ -264,6 +277,7 @@ __device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, cons
   glm::fvec3 lightSamplePoint;
   float pdf;
 
+  // TODO: Unroll using templates
   for (unsigned int i = 0; i < samples; ++i)
   {
     light.sample(pdf, lightSamplePoint, curandState1, curandState2);
@@ -410,15 +424,8 @@ __device__ glm::fvec3 rayTrace(\
         if (sinf(acosf(cosi)) <= rat) // Check for total internal reflection
         {
           const float sin2t = fabs((idx1 / idx2) * (idx1 / idx2) * (1 - cosi * cosi));
-          const float cost = sqrt(1 - sin2t);
 
-          float Rs = (idx1 * cosi - idx2 * cost) / (idx1 * cosi + idx2 * cost);
-          Rs = Rs * Rs;
-
-          float Rp = (idx2 * cosi - idx1 * cost) / (idx2 * cosi + idx1 * cost);
-          Rp = Rp * Rp;
-
-          R = (Rs + Rp) * 0.5f;
+          R = fresnelReflectioncoefficient(sin2t, cosi, idx1, idx2);
 
           const glm::fvec3 transOrig = result.point - interpolatedNormal * OFFSET_EPSILON;
           const glm::fvec3 transDir = refractionDirection(cosi, sin2t, interpolatedNormal, currentTask.outRay.direction, idx1, idx2);
@@ -499,9 +506,16 @@ __device__ glm::fvec3 pathTrace(\
     else
       mask = 0x00; // We are outside. Unset bit.
 
+    color += throughput * material.colorAmbient * 0.25f;
     const glm::fvec3 brightness = areaLightShading<1>(interpolatedNormal, light, bvh, result, triangles, curandState1, curandState2);
     color += throughput * material.colorDiffuse / (glm::pi<float>() * p) * brightness;
 
+    // Phong's specular highlight
+    if ((mask & INSIDE_BIT) == 0x00)
+    {
+      const glm::fvec3 rm = reflectionDirection(interpolatedNormal, glm::normalize(light.getPosition() - result.point));
+      color += material.colorSpecular * powf(__saturatef(glm::dot(rm, currentRay.direction)), material.shininess);
+    }
 
     if (currentBounce < bounces)
     {
@@ -517,22 +531,84 @@ __device__ glm::fvec3 pathTrace(\
       terminate = true;
 
 
-    glm::fmat3 B = getBasis(interpolatedNormal);
+    glm::fvec3 newDir, newOrig;
+    glm::fmat3 B;
 
-    glm::fvec3 newDir;
+    if (material.shadingMode == material.FRESNEL)
+    {
+      mask = (material.colorSpecular.x != 0.f ||
+          material.colorSpecular.y != 0.f ||
+          material.colorSpecular.z != 0.f) ? REFLECTIVE_BIT | mask : mask;
 
-    do {
-      newDir = glm::fvec3(curand_uniform(&curandState1) * 2.0f - 1.0f, curand_uniform(&curandState1) * 2.0f - 1.0f, 0.f);
-    } while ((newDir.x * newDir.x + newDir.y * newDir.y) >= 1);
+      mask = (material.colorTransparent.x != 0.f ||
+          material.colorTransparent.y != 0.f ||
+          material.colorTransparent.z != 0.f) ? REFRACTIVE_BIT | mask : mask;
 
-    newDir.z = glm::sqrt(1 - newDir.x * newDir.x - newDir.y * newDir.y);
-    newDir = B * newDir;
-    newDir = glm::normalize(newDir);
+      float rP = 1.f; // Probability for reflection to occur
+      float R = 1.f; // Fresnel reflection coefficient
+      float cosi, sin2t, idx1, idx2;
 
-    const glm::fvec3 newOrig = result.point + OFFSET_EPSILON * interpolatedNormal;
+      if ((mask & REFRACTIVE_BIT) != 0x00)
+      {
+        float sLen = glm::length(material.colorSpecular);
+        float tLen = glm::length(material.colorTransparent);
 
-    p *= glm::dot(newDir, interpolatedNormal) * (1.f / glm::pi<float>());
-    throughput *= material.colorDiffuse / glm::pi<float>() * glm::dot(newDir, interpolatedNormal);
+        rP = sLen / (sLen + tLen);
+
+        idx1 = AIR_INDEX;
+        idx2 = material.refrIdx;
+
+        float rat;
+
+        if ((mask & INSIDE_BIT) != 0x00) // inside
+          rat = __fdividef(idx1, idx2);
+        else
+          rat = __fdividef(idx2, idx1);
+
+        cosi = fabsf(glm::dot(currentRay.direction, interpolatedNormal));
+
+        if (sinf(acosf(cosi)) <= rat) // Check for total internal reflection
+        {
+          sin2t = fabs((idx1 / idx2) * (idx1 / idx2) * (1 - cosi * cosi));
+          R = fresnelReflectioncoefficient(sin2t, cosi, idx1, idx2);
+        }
+      }
+
+      rP *= R;
+
+      bool refl = curand_uniform(&curandState1) < rP;
+
+      if (refl)
+      {
+        newDir = reflectionDirection(interpolatedNormal, currentRay.direction);
+        newOrig = result.point + interpolatedNormal * OFFSET_EPSILON;
+        throughput *= material.colorSpecular;
+      }
+      else
+      {
+        newDir = refractionDirection(cosi, sin2t, interpolatedNormal, currentRay.direction, idx1, idx2);
+        newOrig = result.point - interpolatedNormal * OFFSET_EPSILON;
+        throughput *= material.colorTransparent;
+      }
+
+    }
+    else // Diffuse
+    {
+      B = getBasis(interpolatedNormal);
+
+      do {
+        newDir = glm::fvec3(curand_uniform(&curandState1) * 2.0f - 1.0f, curand_uniform(&curandState1) * 2.0f - 1.0f, 0.f);
+      } while ((newDir.x * newDir.x + newDir.y * newDir.y) >= 1);
+
+      newDir.z = glm::sqrt(1 - newDir.x * newDir.x - newDir.y * newDir.y);
+      newDir = B * newDir;
+      newDir = glm::normalize(newDir);
+
+      newOrig = result.point + OFFSET_EPSILON * interpolatedNormal;
+
+      p *= glm::dot(newDir, interpolatedNormal) * (1.f / glm::pi<float>());
+      throughput *= material.colorDiffuse / glm::pi<float>() * glm::dot(newDir, interpolatedNormal);
+    }
 
     currentRay = Ray(newOrig, newDir);
 
@@ -791,6 +867,11 @@ cudaTestRnd(\
   writeToCanvas(x, y, canvas, canvasSize, glm::fvec3(r, g, 0.f));
 
   return;
+}
+
+void CudaRenderer::reset()
+{
+  currentPath = 1;
 }
 
 void CudaRenderer::resize(const glm::ivec2& size)
