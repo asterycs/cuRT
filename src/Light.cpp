@@ -3,7 +3,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_access.hpp>
 
-CUDA_HOST_DEVICE Light::Light(const glm::mat4& mat) : modelMat(mat), size(0.15f, 0.15f), emission(800.f, 800.f, 800.f), enabled(true)
+CUDA_HOST_DEVICE Light::Light(const glm::mat4& mat) : modelMat(mat), size(0.15f, 0.15f), emission(600.f, 600.f, 600.f), enabled(true)
 {
 
 }

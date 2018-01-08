@@ -277,6 +277,8 @@ __device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, cons
   glm::fvec3 lightSamplePoint;
   float pdf;
 
+  const glm::fvec3 emission = light.getEmission();
+
   // TODO: Unroll using templates
   for (unsigned int i = 0; i < samples; ++i)
   {
@@ -296,11 +298,11 @@ __device__ glm::fvec3 areaLightShading(const glm::fvec3 interpolatedNormal, cons
       const float cosOmega = __saturatef(glm::dot(shadowRayDirNormalized, interpolatedNormal));
       const float cosL = __saturatef(glm::dot(-shadowRayDirNormalized, light.getNormal()));
 
-      brightness += __fdividef(1.f, (maxT * maxT * pdf)) * light.getEmission() * cosL * cosOmega;
+      brightness += __fdividef(1.f, (maxT * maxT * pdf)) * emission * cosL * cosOmega;
     }
   }
 
-  brightness /= SHADOWSAMPLING;
+  brightness /= samples;
 
   return brightness;
 }
@@ -380,7 +382,7 @@ __device__ glm::fvec3 rayTrace(\
     }
 
     // Phong's specular highlight
-    if ((mask & INSIDE_BIT) == 0x00)
+    if ((mask & INSIDE_BIT) == 0x00 && material.shadingMode == material.PHONG)
     {
       const glm::fvec3 rm = reflectionDirection(interpolatedNormal, glm::normalize(light.getPosition() - result.point));
       color += material.colorSpecular * powf(__saturatef(glm::dot(rm, currentTask.outRay.direction)), material.shininess);
@@ -511,24 +513,11 @@ __device__ glm::fvec3 pathTrace(\
     color += throughput * material.colorDiffuse / (glm::pi<float>() * p) * brightness;
 
     // Phong's specular highlight
-    if ((mask & INSIDE_BIT) == 0x00)
+    if ((mask & INSIDE_BIT) == 0x00 && material.shadingMode == material.PHONG)
     {
       const glm::fvec3 rm = reflectionDirection(interpolatedNormal, glm::normalize(light.getPosition() - result.point));
       color += material.colorSpecular * powf(__saturatef(glm::dot(rm, currentRay.direction)), material.shininess);
     }
-
-    if (currentBounce < bounces)
-    {
-      ++currentBounce;
-    }
-    else if (roulette)
-    {
-      ++currentBounce;
-      p *= 0.8f; // Continuation probability
-      terminate = curand_uniform(&curandState1) < 0.2f;
-    }
-    else
-      terminate = true;
 
 
     glm::fvec3 newDir, newOrig;
@@ -544,16 +533,17 @@ __device__ glm::fvec3 pathTrace(\
           material.colorTransparent.y != 0.f ||
           material.colorTransparent.z != 0.f) ? REFRACTIVE_BIT | mask : mask;
 
-      float rP = 1.f; // Probability for reflection to occur
+      float rP = 1.f; // Probability for reflection to occur. Depends on the strength of the specular and transparent colors.
+
       float R = 1.f; // Fresnel reflection coefficient
       float cosi, sin2t, idx1, idx2;
 
       if ((mask & REFRACTIVE_BIT) != 0x00)
       {
-        float sLen = glm::length(material.colorSpecular);
+        float rLen = glm::length(material.colorSpecular);
         float tLen = glm::length(material.colorTransparent);
 
-        rP = sLen / (sLen + tLen);
+        rP = rLen / (rLen + tLen);
 
         idx1 = AIR_INDEX;
         idx2 = material.refrIdx;
@@ -575,6 +565,8 @@ __device__ glm::fvec3 pathTrace(\
       }
 
       rP *= R;
+
+      rP = rP / (rP + (1.f - rP) * (1.f - R));
 
       bool refl = curand_uniform(&curandState1) < rP;
 
@@ -611,6 +603,19 @@ __device__ glm::fvec3 pathTrace(\
     }
 
     currentRay = Ray(newOrig, newDir);
+
+    if (currentBounce < bounces)
+    {
+      ++currentBounce;
+    }
+    else if (roulette)
+    {
+      ++currentBounce;
+      p *= 0.8f; // Continuation probability
+      terminate = curand_uniform(&curandState1) < 0.2f;
+    }
+    else
+      terminate = true;
 
   } while (!terminate);
 

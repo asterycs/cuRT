@@ -3,6 +3,7 @@
 #include "Utils.hpp"
 
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/component_wise.hpp>
 
 GLContext::GLContext() :
   lastTime(static_cast<float>(glfwGetTime())),
@@ -95,7 +96,6 @@ GLContext::GLContext() :
   textShader.loadShader("shaders/text/vshader.glsl", "shaders/text/fshader.glsl");
   depthShader.loadShader("shaders/depth/vshader.glsl", "shaders/depth/fshader.glsl");
   lineShader.loadShader("shaders/line/vshader.glsl", "shaders/line/fshader.glsl");
-  triShader.loadShader("shaders/tri/vshader.glsl", "shaders/tri/fshader.glsl");
   
   std::cout << "OpenGL context initialized" << std::endl;
 
@@ -486,13 +486,15 @@ void GLContext::drawLight(const GLLight& light, const Camera& camera)
   GL_CHECK(glCullFace(GL_BACK));
   glm::fvec3 frontLightCol;
 
+  float maxCol = glm::compMax(light.getLight().getEmission());
+
   if (light.getLight().isEnabled())
-    frontLightCol = glm::fvec3(1.f, 1.f, 1.f);
+    frontLightCol = light.getLight().getEmission() / glm::fvec3(maxCol);
   else
-    frontLightCol = glm::fvec3(0.3f, 0.3f, 0.3f);
+    frontLightCol = light.getLight().getEmission() / glm::fvec3(maxCol) * glm::fvec3(0.3f, 0.3f, 0.3f);
 
 
-  lightShader.updateUniform3fv("lightColor", glm::vec3(1.f, 1.f, 1.f));
+  lightShader.updateUniform3fv("lightColor", frontLightCol);
   GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, light.getNTriangles() * 3));
 
 	GL_CHECK(glBindVertexArray(0));
