@@ -53,6 +53,7 @@ public:
 
   bool initFT();
   void renderText(const std::string& text, const float x, const float y);
+  GLTexture generateTexture(unsigned char* pixels, const unsigned int width, const unsigned int height) const;
 private:
   void drawModel(const GLModel& model, const Camera& camera, const GLLight& light);
   void drawNodeTriangles(const GLModel& model, const GLLight& light, const Camera& camera, const Node& node);

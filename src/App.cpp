@@ -17,6 +17,7 @@ App::App() :
     mousePrevPos(glcontext.getCursorPos()),
     activeRenderer(ActiveRenderer::GL),
     glcontext(),
+    ui(glcontext),
 #ifdef ENABLE_CUDA
     cudaRenderer(),
 #endif

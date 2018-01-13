@@ -579,3 +579,8 @@ glm::ivec2 GLContext::getSize() const
 {
   return size;
 }
+
+GLTexture GLContext::generateTexture(unsigned char* pixels, const unsigned int width, const unsigned int height) const
+{
+
+}

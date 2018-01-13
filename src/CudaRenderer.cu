@@ -1026,7 +1026,6 @@ void CudaRenderer::rayTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLMo
       curandStateDevYRaw, \
       model.getDeviceBVH());
 
-
   //cudaTestRnd<<<grid, block>>>(surfaceObj, canvasSize, curandStateDevXRaw, curandStateDevYRaw);
 
   CUDA_CHECK(cudaDeviceSynchronize());
