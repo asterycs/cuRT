@@ -121,10 +121,6 @@ ExternalProject_Add(
     UPDATE_DISCONNECTED 1
     UPDATE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
     LOG_DOWNLOAD 1
-    LOG_UPDATE 1
-    LOG_CONFIGURE 1
-    LOG_BUILD 1
-    LOG_INSTALL 1
     )
 
 ExternalProject_Get_Property(glm SOURCE_DIR)
@@ -154,6 +150,32 @@ ExternalProject_Add(
 ExternalProject_Get_Property(glfw INSTALL_DIR)
 set(GLFW_INCLUDE_DIRS ${INSTALL_DIR}/include)
 set(GLFW_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glfw3${CMAKE_STATIC_LIBRARY_SUFFIX})
+
+# imgui
+ExternalProject_Add(
+    imgui
+    PREFIX ${CMAKE_BINARY_DIR}/ext/imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_PROGRESS 1
+    UPDATE_DISCONNECTED 1
+    LOG_DOWNLOAD 1
+    CONFIGURE_COMMAND ""
+    UPDATE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+    )
+
+ExternalProject_Get_Property(imgui SOURCE_DIR)
+set(IMGUI_SRC_FILES ${SOURCE_DIR}/imconfig.h
+                    ${SOURCE_DIR}/imgui.cpp
+                    ${SOURCE_DIR}/imgui.h
+                    ${SOURCE_DIR}/imgui_draw.cpp
+                    ${SOURCE_DIR}/imgui_internal.h
+                    ${SOURCE_DIR}/imgui_demo.cpp
+                    ${SOURCE_DIR}/stb_rect_pack.h
+                    ${SOURCE_DIR}/stb_textedit.h
+                    ${SOURCE_DIR}/stb_truetype.h
+                    )
 
 # glew
 #ExternalProject_Add(glew
