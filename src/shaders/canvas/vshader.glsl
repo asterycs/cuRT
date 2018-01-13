@@ -1,11 +1,12 @@
 #version 330 core
 
-layout(location = 0) in vec3 position;
-layout(location = 2) in vec2 tex;
-
 out vec2 UV;
 
 void main() {
-  gl_Position = vec4(position.xyz, 1.0);
-  UV = tex;
+  float xCoord = (gl_VertexID == 2) ?  3.0 : -1.0;
+  float yCoord = (gl_VertexID == 1) ? -3.0 :  1.0;
+  UV.x = (xCoord + 1.f) * 0.5f;
+  UV.y = (yCoord + 1.f) * 0.5f;
+
+  gl_Position = vec4(xCoord, yCoord, 0.f, 1.f);
 }

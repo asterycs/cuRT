@@ -18,6 +18,7 @@
 class GLCanvas
 {
 public:
+  GLCanvas();
   GLCanvas(const glm::ivec2& size);
   GLCanvas(GLCanvas const& that) = delete;
   void operator=(GLCanvas& that) = delete;
@@ -27,23 +28,15 @@ public:
   GLuint getTextureID() const;
   glm::ivec2 getSize() const;
   GLenum getInternalFormat() const;
-  GLuint getVaoID() const;
-  GLuint getVboID() const;
-  int getNTriangles() const;
-
-  void cudaUnmap();
 
 #ifdef ENABLE_CUDA
+  void cudaUnmap();
   cudaSurfaceObject_t getCudaMappedSurfaceObject();
 #endif
 
 private:
   GLuint textureID;
   glm::ivec2 size;
-
-  GLuint vaoID;
-  GLuint vboID;
-  int nTriangles;
 
 #ifdef ENABLE_CUDA
   cudaGraphicsResource_t cudaCanvasResource;

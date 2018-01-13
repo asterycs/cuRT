@@ -565,13 +565,18 @@ void GLContext::draw(const GLCanvas& canvas)
    GL_CHECK(glActiveTexture(GL_TEXTURE0));
    canvasShader.bind();
    GL_CHECK(glBindTexture(GL_TEXTURE_2D, canvas.getTextureID()));
-   GL_CHECK(glBindVertexArray(canvas.getVaoID()));
    
+   // GLint posID = canvasShader.getAttribLocation("texture");
    canvasShader.updateUniform1i("texture", 0);
   
-   GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, canvas.getNTriangles() * 3));
+   GLuint dummyVao;
+   GL_CHECK(glGenVertexArrays(1, &dummyVao));
+   GL_CHECK(glBindVertexArray(dummyVao));
+
+   GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
 
    GL_CHECK(glBindVertexArray(0));
+   GL_CHECK(glDeleteVertexArrays(1, &dummyVao));
    canvasShader.unbind();
 }
 
