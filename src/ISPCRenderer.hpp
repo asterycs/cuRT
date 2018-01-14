@@ -3,7 +3,7 @@
 
 #include "Light.hpp"
 #include "Model.hpp"
-#include "GLCanvas.hpp"
+#include "GLTexture.hpp"
 #include "Camera.hpp"
 
 class ISPCRenderer
@@ -12,7 +12,7 @@ public:
   ISPCRenderer();
   ~ISPCRenderer();
   
-  void renderToCanvas(GLCanvas& canvas, const Camera& camera, Model& model, Light& light);
+  void renderToCanvas(GLTexture& canvas, const Camera& camera, Model& model, Light& light);
 
 
 };

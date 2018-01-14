@@ -1,10 +1,13 @@
 #include "UI.hpp"
 
+#include <GL/glew.h>
+#include <GL/gl.h>
+
 #include "imgui.h"
 
 #include "Utils.hpp"
 
-UI::UI(const GLContext& glcontext)
+UI::UI()
 {
   ImGuiIO& io = ImGui::GetIO();
   io.DisplaySize.x = WWIDTH;
@@ -13,9 +16,8 @@ UI::UI(const GLContext& glcontext)
 
   unsigned char* pixels;
   int width, height;
-  io.Fonts->GetTexDataAsRGBA32(pixels, &width, &height);
-  GLTexture texture = glcontext.createTexture(pixels, width, height, TEXTURE_TYPE_RGBA);
-  io.Fonts->TexID = (void*)texture;
+  io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+  fontTexture = texture(pixels, glm::ivec2(width, height));
 }
 
 UI::~UI()

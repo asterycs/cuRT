@@ -1,6 +1,8 @@
 #ifndef GLTEXTURE_HPP
 #define GLTEXTURE_HPP
 
+#include <vector>
+
 #include <GL/glew.h>
 #include <GL/gl.h>
 
@@ -11,14 +13,19 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 
+#include "Utils.hpp"
+
 class GLTexture
 {
 public:
-  GLTexture(unsigned char* pixels, const unsigned int width, const unsigned int height);
+  GLTexture();
+  GLTexture(const unsigned char* pixels, const glm::ivec2 size, const GLenum internalFormat = GL_RGBA32F);
+  GLTexture(const glm::ivec2& size, const GLenum internalFormat = GL_RGBA32F);
   GLTexture(GLTexture const& that) = delete;
   void operator=(GLTexture& that) = delete;
   ~GLTexture();
 
+  void resize(const glm::ivec2 newSize);
   GLuint getTextureID() const;
   glm::ivec2 getSize() const;
   GLenum getInternalFormat() const;
@@ -32,10 +39,12 @@ private:
   GLuint textureID;
   glm::ivec2 size;
 
+  GLenum internalFormat;
+
 #ifdef ENABLE_CUDA
   cudaGraphicsResource_t cudaCanvasResource;
   cudaArray_t canvasCudaArray;
 #endif
 };
 
-#endif /* GLTEXTURE_HPP_ */
+#endif

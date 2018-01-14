@@ -17,13 +17,13 @@ App::App() :
     mousePrevPos(glcontext.getCursorPos()),
     activeRenderer(ActiveRenderer::GL),
     glcontext(),
-    ui(glcontext),
+    ui(),
 #ifdef ENABLE_CUDA
     cudaRenderer(),
 #endif
     glmodel(),
     gllight(),
-    glcanvas(glm::ivec2(WWIDTH, WHEIGHT)),
+    glcanvas(glm::ivec2(WWIDTH, WHEIGHT), GL_RGBA32F),
     camera(),
     loader(),
     drawDebug(false),

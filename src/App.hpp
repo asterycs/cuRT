@@ -6,7 +6,7 @@
 
 #include "ModelLoader.hpp"
 #include "GLContext.hpp"
-#include "GLCanvas.hpp"
+#include "GLTexture.hpp"
 #include "UI.hpp"
 
 #ifdef ENABLE_CUDA
@@ -65,7 +65,7 @@ private:
     Model model;
     GLModel glmodel;
     GLLight gllight;
-    GLCanvas glcanvas;
+    GLTexture glcanvas;
     
     Camera camera;
     ModelLoader loader;

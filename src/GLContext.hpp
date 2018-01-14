@@ -15,7 +15,7 @@
 #include "GLDrawable.hpp"
 #include "GLLight.hpp"
 #include "GLModel.hpp"
-#include "GLCanvas.hpp"
+#include "GLTexture.hpp"
 #include "GLShader.hpp"
 #include "GLShadowMap.hpp"
 
@@ -29,7 +29,7 @@ public:
 
   void draw(const GLModel& scene, const GLLight& light, const Camera& mvp);
   void draw(const GLModel& scene, const GLLight& light, const Camera& mvp, const Node& debugNode);
-  void draw(const GLCanvas& canvas);
+  void draw(const GLTexture& canvas);
   void draw(const std::vector<glm::fvec3>& points, const Camera& camera);
   void draw(const AABB& box, const Camera& camera);
   void resize(const glm::ivec2& newSize);
@@ -53,7 +53,6 @@ public:
 
   bool initFT();
   void renderText(const std::string& text, const float x, const float y);
-  GLTexture generateTexture(unsigned char* pixels, const unsigned int width, const unsigned int height) const;
 private:
   void drawModel(const GLModel& model, const Camera& camera, const GLLight& light);
   void drawNodeTriangles(const GLModel& model, const GLLight& light, const Camera& camera, const Node& node);

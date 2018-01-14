@@ -557,7 +557,7 @@ void GLContext::draw(const std::vector<glm::fvec3>& points, const Camera& camera
   GL_CHECK(glDeleteVertexArrays(1, &vao));
 }
 
-void GLContext::draw(const GLCanvas& canvas)
+void GLContext::draw(const GLTexture& canvas)
 {
   if (!shadersLoaded() || canvas.getTextureID() == 0)
      return;
@@ -583,9 +583,4 @@ void GLContext::draw(const GLCanvas& canvas)
 glm::ivec2 GLContext::getSize() const
 {
   return size;
-}
-
-GLTexture GLContext::generateTexture(unsigned char* pixels, const unsigned int width, const unsigned int height) const
-{
-
 }

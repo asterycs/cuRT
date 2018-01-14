@@ -8,7 +8,7 @@ ISPCRenderer::~ISPCRenderer()
 {
 }
 
-void ISPCRenderer::renderToCanvas(GLCanvas& /*canvas*/, const Camera& /*camera*/, Model& /*model*/, Light& /*light*/)
+void ISPCRenderer::renderToCanvas(GLTexture& /*canvas*/, const Camera& /*camera*/, Model& /*model*/, Light& /*light*/)
 {
   
 }

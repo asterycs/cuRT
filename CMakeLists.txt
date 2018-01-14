@@ -166,6 +166,7 @@ ExternalProject_Add(
     )
 
 ExternalProject_Get_Property(imgui SOURCE_DIR)
+set(IMGUI_INCLUDE_DIRS ${SOURCE_DIR})
 set(IMGUI_SRC_FILES ${SOURCE_DIR}/imconfig.h
                     ${SOURCE_DIR}/imgui.cpp
                     ${SOURCE_DIR}/imgui.h
@@ -202,6 +203,7 @@ set(IMGUI_SRC_FILES ${SOURCE_DIR}/imconfig.h
 #set(GLEW_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}GLEW${CMAKE_STATIC_LIBRARY_SUFFIX})
 
 include_directories(
+    ${IMGUI_INCLUDE_DIRS}
     ${GLFW_INCLUDE_DIRS}
     ${ASSIMP_INCLUDE_DIRS}
     ${NATIVEFILEDIALOG_INCLUDE_DIRS}
