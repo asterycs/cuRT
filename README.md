@@ -45,7 +45,11 @@ The kernels have been optimized for the NVIDIA GTX 1060 3GB that I own.
 - Textures
 - More optimization
 
-![Screenshot1](screenshot.png?raw=true "Screenshot")
-![Screenshot2](bvh.png?raw=true "Debug visualization")
+![Screenshot1](raytrace.png?raw=true "raytrace")
+Ray tracer
+![Screenshot2](pathtrace.png?raw=true "pathtrace")
+Path tracer
+![Screenshot3](bvh.png?raw=true "Debug visualization")
+BVH Visualization
 
 Screenshot model downloaded from Morgan McGuire's Computer Graphics Archive https://casual-effects.com/data
