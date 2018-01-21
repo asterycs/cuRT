@@ -129,17 +129,23 @@ void App::handleControl(float dTime)
   mousePrevPos = mousePos;
 
   if (glcontext.isKeyPressed(GLFW_KEY_W, 0))
-    camera.translate(glm::vec2(0.f, 1.f), dTime);
+    camera.translate(glm::vec3(0.f, 1.f, 0.f), dTime);
 
   if (glcontext.isKeyPressed(GLFW_KEY_S, 0))
-    camera.translate(glm::vec2(0.f, -1.f), dTime);
+    camera.translate(glm::vec3(0.f, -1.f, 0.f), dTime);
 
   if (glcontext.isKeyPressed(GLFW_KEY_A, 0))
-    camera.translate(glm::vec2(1.f, 0.f), dTime);
+    camera.translate(glm::vec3(1.f, 0.f, 0.f), dTime);
 
   if (glcontext.isKeyPressed(GLFW_KEY_D, 0))
-    camera.translate(glm::vec2(-1.f, 0.f), dTime);
+    camera.translate(glm::vec3(-1.f, 0.f, 0.f), dTime);
   
+  if (glcontext.isKeyPressed(GLFW_KEY_R, 0))
+    camera.translate(glm::vec3(0.f, 0.f, 1.f), dTime);
+
+  if (glcontext.isKeyPressed(GLFW_KEY_F, 0))
+    camera.translate(glm::vec3(0.f, 0.f, -1.f), dTime);
+
   if (glcontext.isKeyPressed(GLFW_KEY_RIGHT, 0))
     camera.rotate(glm::vec2(2.f, 0.f), dTime);
 

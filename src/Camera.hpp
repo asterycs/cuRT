@@ -20,7 +20,7 @@ class Camera
 public:
   CUDA_HOST_DEVICE Camera();
   CUDA_HOST_DEVICE void rotate(const glm::fvec2& r, const float dTime);
-  CUDA_HOST_DEVICE void translate(const glm::fvec2& t, const float dt);
+  CUDA_HOST_DEVICE void translate(const glm::fvec3& t, const float dt);
   CUDA_HOST_DEVICE void increaseFOV();
   CUDA_HOST_DEVICE void decreaseFOV();
   

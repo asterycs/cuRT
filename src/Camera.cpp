@@ -65,9 +65,11 @@ CUDA_HOST_DEVICE void Camera::rotate(const glm::fvec2& r, const float dTime)
   vAngle += r.x * mouseSpeed * dTime;
 }
 
-CUDA_HOST_DEVICE void Camera::translate(const glm::fvec2& t, const float dTime)
+CUDA_HOST_DEVICE void Camera::translate(const glm::fvec3& t, const float dTime)
 {
-  position = position + dTime * moveSpeed * glm::fvec3(t.x) * getLeft() + dTime * moveSpeed * glm::fvec3(t.y) * getForward();
+  position = position + dTime * moveSpeed * glm::fvec3(t.x) * getLeft()
+      + dTime * moveSpeed * glm::fvec3(t.y) * getForward()
+      + dTime * moveSpeed * glm::fvec3(t.z) * getUp();
 }
 
 CUDA_HOST_DEVICE const glm::fvec3& Camera::getPosition() const
