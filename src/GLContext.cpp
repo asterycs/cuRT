@@ -8,8 +8,6 @@
 #include <imgui.h>
 
 GLContext::GLContext() :
-  lastTime(static_cast<float>(glfwGetTime())),
-  fps(0.f),
   modelShader(),
   lightShader(),
   canvasShader(),
@@ -256,11 +254,7 @@ bool GLContext::isAlive()
 
 float GLContext::getDTime()
 {
-  float currentTime = getTime();
-  float dTime = currentTime - lastTime;
-  lastTime = currentTime;
-
-  return dTime;
+  return ui.getDTime();
 }
 
 float GLContext::getTime() const
@@ -268,22 +262,9 @@ float GLContext::getTime() const
   return (float) glfwGetTime();
 }
 
-std::string GLContext::getFPS()
+void GLContext::drawUI(const enum ActiveRenderer activeRenderer, const enum DebugMode debugMode)
 {
-  std::string s(std::to_string(std::floor(fps)));
-
-  // Must look for both decimal separators. File dialogue changes sprintf behavior according to locale...
-  while( ((s.find_first_of(",.") != std::string::npos) && (s.substr(s.length() - 1, 1) == "0")) || (s.find_first_of(",.") == s.length() - 1))
-  {
-    s.pop_back();
-  }
-
-  return s;
-}
-
-void GLContext::drawUI()
-{
-  ui.draw();
+  ui.draw(activeRenderer, debugMode);
 }
 
 bool GLContext::UiWantsMouseInput()
@@ -307,12 +288,6 @@ void GLContext::draw(const GLModel& model, const GLLight& light, const Camera& c
 void GLContext::draw(const GLModel& model, const GLLight& light, const Camera& camera, const Node& debugNode)
 {
   drawNodeTriangles(model, light, camera, debugNode);
-}
-
-
-void GLContext::updateFPS(const float dTime)
-{
-  fps = 0.5f * fps + 0.5 * 1/dTime;
 }
 
 void GLContext::draw(const AABB& box, const Camera& camera)

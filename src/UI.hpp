@@ -5,6 +5,19 @@
 
 class GLFWwindow;
 
+enum ActiveRenderer {
+  GL,
+  RAYTRACER,
+  PATHTRACER
+};
+
+enum DebugMode
+{
+  DEBUG_RAYTRACE,
+  DEBUG_PATHTRACE,
+  NONE
+};
+
 class UI
 {
 public:
@@ -13,8 +26,9 @@ public:
 
   void init(GLFWwindow* window);
 
-  void draw();
+  void draw(const enum ActiveRenderer activeRenderer, const enum DebugMode debugMode);
   void resize(const glm::ivec2 newSize);
+  float getDTime();
 private:
   GLTexture fontTexture;
 };

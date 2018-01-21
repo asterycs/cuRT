@@ -40,14 +40,6 @@ public:
     void rayTraceToFile(const std::string& sceneFile, const std::string& outFile);
     void pathTraceToFile(const std::string& sceneFile, const std::string& outFile, const int paths);
 private:
-    enum ActiveRenderer {
-      GL
-#ifdef ENABLE_CUDA
-      , RAYTRACER,
-      PATHTRACER
-#endif
-    };
-    
     App();
     ~App();
 
@@ -68,7 +60,7 @@ private:
     Camera camera;
     ModelLoader loader;
 
-    bool drawDebug;
+    enum DebugMode debugMode;
     unsigned int debugBboxPtr;
 };
 

@@ -25,7 +25,7 @@ App::App() :
     glcanvas(glm::ivec2(WWIDTH, WHEIGHT), GL_RGBA32F),
     camera(),
     loader(),
-    drawDebug(false),
+    debugMode(DebugMode::NONE),
     debugBboxPtr(0u)
 {
 
@@ -52,9 +52,6 @@ void App::resizeCallbackEvent(int width, int height)
 
 void App::MainLoop()
 {
-  std::string fps = glcontext.getFPS();
-  float lastUpdated = 0;
-
   while (glcontext.isAlive())
   {
     glcontext.clear();
@@ -78,23 +75,12 @@ void App::MainLoop()
 #endif
     }
 
-    glcontext.drawUI();
-
-    float cTime = glcontext.getTime();
-    if (cTime - lastUpdated > 0.5f)
-    {
-      fps = glcontext.getFPS();
-      glcontext.updateFPS(dTime);
-      lastUpdated = cTime;
-    }
-
-    if (drawDebug)
+    if (debugMode != DebugMode::NONE)
     {
       drawDebugInfo();
     }
 
-    glcontext.renderText(fps + " FPS", -1.f, 0.8f);
-
+    glcontext.drawUI(activeRenderer, debugMode);
     glcontext.swapBuffers();
   }
 
@@ -103,7 +89,6 @@ void App::MainLoop()
 
 void App::drawDebugInfo()
 {
-
   if (debugBboxPtr != model.getBVH().size())
     glcontext.draw(glmodel, gllight, camera, model.getBVH()[debugBboxPtr]);
 
@@ -117,8 +102,6 @@ void App::drawDebugInfo()
     ++ctr;
   }
 
-  glcontext.renderText("D", -1.f, 0.68f);
-  glcontext.renderText(debugBboxPtr == model.getBVH().size() ? "All" : std::to_string(debugBboxPtr), -0.9f, 0.68f);
   glcontext.draw(debugPoints, camera);
 }
 
@@ -183,7 +166,7 @@ void App::mouseCallback(int button, int action, int /*modifiers*/)
 
 void App::scrollCallback(double /*xOffset*/, double yOffset)
 {
-  if (drawDebug)
+  if (debugMode != DebugMode::NONE)
   {
     /*const std::size_t nLeaves = std::count_if(std::begin(model.getBVH()), std::end(model.getBVH()), [](const Node& n)
         {
@@ -240,7 +223,7 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
   }
   else if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
   {
-    activeRenderer = static_cast<App::ActiveRenderer>((activeRenderer + 1) % 3);
+    activeRenderer = static_cast<ActiveRenderer>((activeRenderer + 1) % 3);
     debugPoints.clear();
     cudaRenderer.reset();
   }
@@ -269,12 +252,16 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
     }
   }else if (key == GLFW_KEY_D && action == GLFW_PRESS && (modifiers & GLFW_MOD_CONTROL))
   {
-    drawDebug = !drawDebug;
+    debugMode = static_cast<DebugMode>((debugMode + 1) % 3);
 #ifdef ENABLE_CUDA
     const glm::ivec2 pos = glcontext.getCursorPos();
 
-    debugPoints = cudaRenderer.debugRayTrace(pos, glcanvas.getSize(), camera, glmodel, gllight);
-    //  debugPoints = cudaRenderer.debugPathTrace(pos, glcanvas.getSize(), camera, glmodel, gllight);
+    if (debugMode == DebugMode::DEBUG_RAYTRACE)
+      debugPoints = cudaRenderer.debugRayTrace(pos, glcanvas.getSize(), camera, glmodel, gllight);
+    else if (debugMode == DebugMode::DEBUG_PATHTRACE)
+      debugPoints = cudaRenderer.debugPathTrace(pos, glcanvas.getSize(), camera, glmodel, gllight);
+    else
+      debugPoints.clear();
 #endif    
   }
 
