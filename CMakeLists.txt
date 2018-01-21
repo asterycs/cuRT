@@ -154,27 +154,38 @@ set(GLFW_INCLUDE_DIRS ${INSTALL_DIR}/include)
 set(GLFW_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glfw3${CMAKE_STATIC_LIBRARY_SUFFIX})
 
 # imgui
-ExternalProject_Add(
-    imgui
-    PREFIX ${CMAKE_BINARY_DIR}/ext/imgui
-    GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_PROGRESS 1
-    UPDATE_DISCONNECTED 1
-    LOG_DOWNLOAD 1
-    CONFIGURE_COMMAND ""
-    UPDATE_COMMAND ""
-    BUILD_COMMAND ""
-    PATCH_COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/imgui_change_gl_loader.patch
-    INSTALL_COMMAND ""
-    )
+#ExternalProject_Add(
+#    imgui
+#    PREFIX ${CMAKE_BINARY_DIR}/ext/imgui
+#    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+#    GIT_PROGRESS 1
+#    UPDATE_DISCONNECTED 1
+#    LOG_DOWNLOAD 1
+#    CONFIGURE_COMMAND ""
+#    UPDATE_COMMAND ""
+#    BUILD_COMMAND ""
+#    PATCH_COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/imgui_change_gl_loader.patch
+#    INSTALL_COMMAND ""
+#    )
 
-ExternalProject_Get_Property(imgui SOURCE_DIR)
-set(IMGUI_INCLUDE_DIRS ${SOURCE_DIR} ${SOURCE_DIR}/examples/opengl3_example)
-set(IMGUI_SRC_FILES ${SOURCE_DIR}/imgui.cpp
-                    ${SOURCE_DIR}/imgui_draw.cpp
-                    ${SOURCE_DIR}/imgui_demo.cpp
-                    ${SOURCE_DIR}/examples/opengl3_example/imgui_impl_glfw_gl3.cpp
+IF (NOT EXISTS ${CMAKE_BINARY_DIR}/ext/imgui)
+    execute_process(COMMAND git clone https://github.com/ocornut/imgui.git imgui  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/ext/)
+    execute_process(COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/imgui_change_gl_loader.patch WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/ext/imgui)
+ELSE()
+execute_process(COMMAND git stash WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/ext/imgui OUTPUT_QUIET)
+execute_process(COMMAND git pull WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/ext/imgui OUTPUT_QUIET)
+execute_process(COMMAND git stash pop WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/ext/imgui OUTPUT_QUIET)
+ENDIF()
+
+#ExternalProject_Get_Property(imgui SOURCE_DIR)
+set(IMGUI_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/ext/imgui ${CMAKE_BINARY_DIR}/ext/imgui/examples/opengl3_example)
+set(IMGUI_SRC_FILES ${CMAKE_BINARY_DIR}/ext/imgui/imgui.cpp
+                    ${CMAKE_BINARY_DIR}/ext/imgui/imgui_draw.cpp
+                    ${CMAKE_BINARY_DIR}/ext/imgui/imgui_demo.cpp
+                    ${CMAKE_BINARY_DIR}/ext/imgui/examples/opengl3_example/imgui_impl_glfw_gl3.cpp
                     )
+
+set_source_files_properties(${IMGUI_SRC_FILES} PROPERTIES GENERATED TRUE)
 
 # glew
 #ExternalProject_Add(glew
