@@ -1,5 +1,5 @@
-#ifndef GLCANVAS_HPP
-#define GLCANVAS_HPP
+#ifndef GLTEXTURE_HPP
+#define GLTEXTURE_HPP
 
 #include <vector>
 
@@ -15,15 +15,17 @@
 
 #include "Utils.hpp"
 
-class GLCanvas
+class GLTexture
 {
 public:
-  GLCanvas();
-  GLCanvas(const glm::ivec2& size);
-  GLCanvas(GLCanvas const& that) = delete;
-  void operator=(GLCanvas& that) = delete;
-  ~GLCanvas();
+  GLTexture();
+  GLTexture(const unsigned char* pixels, const glm::ivec2 size, const GLenum internalFormat = GL_RGBA32F);
+  GLTexture(const glm::ivec2& size, const GLenum internalFormat = GL_RGBA32F);
+  GLTexture(GLTexture const& that) = delete;
+  void operator=(GLTexture& that) = delete;
+  ~GLTexture();
 
+  void load(const unsigned char* pixels, const glm::ivec2 size, const GLenum internalFormat = GL_RGBA32F);
   void resize(const glm::ivec2 newSize);
   GLuint getTextureID() const;
   glm::ivec2 getSize() const;
@@ -38,9 +40,11 @@ private:
   GLuint textureID;
   glm::ivec2 size;
 
+  GLenum internalFormat;
+
 #ifdef ENABLE_CUDA
   cudaGraphicsResource_t cudaCanvasResource;
-  cudaArray_t canvasCudaArray;
+  cudaArray_t cudaCanvasArray;
 #endif
 };
 

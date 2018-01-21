@@ -72,7 +72,7 @@ struct Material
 
   // TextureIndex?
 
-  Material() : colorAmbient(0.0f), colorDiffuse(0.0f), colorSpecular(0.0f), refrIdx(1.f) {};
+  Material() : colorAmbient(0.0f), colorDiffuse(0.0f), colorSpecular(0.0f), refrIdx(1.f), shadingMode(GORAUD) {};
 
 };
 

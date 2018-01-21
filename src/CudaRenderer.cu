@@ -951,7 +951,7 @@ CudaRenderer::~CudaRenderer()
 
 }
 
-void CudaRenderer::pathTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light)
+void CudaRenderer::pathTraceToCanvas(GLTexture& canvas, const Camera& camera, GLModel& model, GLLight& light)
 {
   if (model.getNTriangles() == 0)
     return;
@@ -996,7 +996,7 @@ void CudaRenderer::pathTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLM
   canvas.cudaUnmap();
 }
 
-void CudaRenderer::rayTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLModel& model, GLLight& light)
+void CudaRenderer::rayTraceToCanvas(GLTexture& canvas, const Camera& camera, GLModel& model, GLLight& light)
 {
   if (model.getNTriangles() == 0)
     return;
@@ -1025,7 +1025,6 @@ void CudaRenderer::rayTraceToCanvas(GLCanvas& canvas, const Camera& camera, GLMo
       curandStateDevXRaw, \
       curandStateDevYRaw, \
       model.getDeviceBVH());
-
 
   //cudaTestRnd<<<grid, block>>>(surfaceObj, canvasSize, curandStateDevXRaw, curandStateDevYRaw);
 

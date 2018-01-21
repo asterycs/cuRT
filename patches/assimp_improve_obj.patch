@@ -1,0 +1,24 @@
+diff --git a/code/ObjFileImporter.cpp b/code/ObjFileImporter.cpp
+index 9f3bdef..2421388 100644
+--- a/code/ObjFileImporter.cpp
++++ b/code/ObjFileImporter.cpp
+@@ -595,9 +595,18 @@ void ObjFileImporter::createMaterials(const ObjFile::Model* pModel, aiScene* pSc
+         case 2:
+             sm = aiShadingMode_Phong;
+             break;
++        case 4:
++            sm = aiShadingMode_Phong;
++            break;
++        case 5:
++            sm = aiShadingMode_Fresnel;
++            break;
++        case 7:
++            sm = aiShadingMode_Fresnel;
++            break;
+         default:
+             sm = aiShadingMode_Gouraud;
+-            DefaultLogger::get()->error("OBJ: unexpected illumination model (0-2 recognized)");
++            DefaultLogger::get()->error("OBJ: unexpected illumination model (0-2, 5, 7 recognized)");
+         }
+ 
+         mat->AddProperty<int>( &sm, 1, AI_MATKEY_SHADING_MODEL);
