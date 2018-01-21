@@ -9,7 +9,6 @@ Have a look at the CMakeLists.txt but in short:
 - Ubuntu 16.04 or similar
 - libx11-dev
 - libglew3-dev
-- libfreetype6-dev
 - libgtk3-dev
 - Cuda toolkit 8.0 (9.0 seems incompatible with glm)
 - Recent Cuda capable GPU.

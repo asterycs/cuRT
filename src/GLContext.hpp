@@ -53,8 +53,6 @@ public:
   
   float getTime() const;
 
-  bool initFT();
-  void renderText(const std::string& text, const float x, const float y);
 private:
   void drawModel(const GLModel& model, const Camera& camera, const GLLight& light);
   void drawNodeTriangles(const GLModel& model, const GLLight& light, const Camera& camera, const Node& node);
@@ -75,10 +73,6 @@ private:
   GLFWwindow* window;
 
   glm::ivec2 size;
-
-  bool ftOperational;
-  FT_Library ft;
-  FT_Face face;
 
   UI ui;
 };

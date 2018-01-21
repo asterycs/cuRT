@@ -13,7 +13,6 @@ GLContext::GLContext() :
   canvasShader(),
   window(nullptr),
   size(WWIDTH, WHEIGHT),
-  ftOperational(false),
   ui()
 {
   if (!glfwInit())
@@ -96,119 +95,10 @@ GLContext::GLContext() :
   modelShader.loadShader("shaders/model/vshader.glsl", "shaders/model/fshader.glsl");
   lightShader.loadShader("shaders/light/vshader.glsl", "shaders/light/fshader.glsl");
   canvasShader.loadShader("shaders/canvas/vshader.glsl", "shaders/canvas/fshader.glsl");
-  textShader.loadShader("shaders/text/vshader.glsl", "shaders/text/fshader.glsl");
   depthShader.loadShader("shaders/depth/vshader.glsl", "shaders/depth/fshader.glsl");
   lineShader.loadShader("shaders/line/vshader.glsl", "shaders/line/fshader.glsl");
   
   std::cout << "OpenGL context initialized" << std::endl;
-
-  ftOperational = initFT();
-}
-
-bool GLContext::initFT()
-{
-  if(FT_Init_FreeType(&ft)) {
-    std::cerr << "Could not init freetype library" << std::endl;
-    return false;
-  }
-
-  if(FT_New_Face(ft, "/usr/share/fonts/truetype/crosextra/Carlito-Bold.ttf", 0, &face)) {
-    std::cerr << "Could not open font" << std::endl;
-    return false;
-  }
-
-  FT_Set_Pixel_Sizes(face, 0, 48);
-
-  return true;
-}
-
-void GLContext::renderText(const std::string& text, const float x, const float y) {
-
-  if (!ftOperational)
-    return;
-
-  textShader.bind();
-
-  FT_GlyphSlot g = face->glyph;
-  const float sx = 2.f / size.x;
-  const float sy = 2.f / size.y;
-
-  GLuint tex;
-  GL_CHECK(glActiveTexture(GL_TEXTURE0));
-  GL_CHECK(glGenTextures(1, &tex));
-  GL_CHECK(glBindTexture(GL_TEXTURE_2D, tex));
-  textShader.updateUniform1i("texture", 0);
-
-  GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-  GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-
-  GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-  GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-
-  GL_CHECK(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
-
-  GLint posLoc = textShader.getAttribLocation("position");
-
-  GLuint vbo, vao;
-  GL_CHECK(glGenVertexArrays(1, &vao));
-  GL_CHECK(glBindVertexArray(vao));
-  GL_CHECK(glGenBuffers(1, &vbo));
-  GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vbo));
-  GL_CHECK(glVertexAttribPointer(posLoc, sizeof(GLfloat), GL_FLOAT, GL_FALSE, 0, NULL));
-  GL_CHECK(glEnableVertexAttribArray(posLoc));
-
-  GL_CHECK(glEnable(GL_BLEND));
-  GL_CHECK(glDisable(GL_DEPTH_TEST));
-  GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-
-
-
-  float posX = x;
-  float posY = y;
-
-  for(auto c : text) {
-    if(FT_Load_Char(face, c, FT_LOAD_RENDER))
-        continue;
-
-    GL_CHECK(glTexImage2D(
-      GL_TEXTURE_2D,
-      0,
-      GL_RED,
-      g->bitmap.width,
-      g->bitmap.rows,
-      0,
-      GL_RED,
-      GL_UNSIGNED_BYTE,
-      g->bitmap.buffer
-    ));
-
-    const float x2 = posX + g->bitmap_left * sx;
-    const float y2 = -posY - g->bitmap_top * sy;
-    const float w = g->bitmap.width * sx;
-    const float h = g->bitmap.rows * sy;
-
-    const GLfloat aabb[4][4] = {
-        {x2,     -y2    , 0.f, 0.f},
-        {x2 + w, -y2    , 1.f, 0.f},
-        {x2,     -y2 - h, 0.f, 1.f},
-        {x2 + w, -y2 - h, 1.f, 1.f},
-    };
-
-    GL_CHECK(glBufferData(GL_ARRAY_BUFFER, sizeof(aabb), aabb, GL_STATIC_DRAW));
-    GL_CHECK(glDrawArrays(GL_TRIANGLE_STRIP, 0, 4));
-
-    posX += (g->advance.x/64) * sx;
-    posY += (g->advance.y/64) * sy;
-  }
-
-  GL_CHECK(glEnable(GL_DEPTH_TEST));
-  GL_CHECK(glDisable(GL_BLEND));
-  GL_CHECK(glDisableVertexAttribArray(posLoc));
-  GL_CHECK(glDeleteTextures(1, &tex));
-  GL_CHECK(glDeleteBuffers(1, &vbo));
-  GL_CHECK(glDeleteVertexArrays(1, &vao));
-
-  textShader.unbind();
 }
 
 GLContext::~GLContext()
@@ -223,7 +113,6 @@ bool GLContext::shadersLoaded() const
  && lightShader.isLoaded() \
  && canvasShader.isLoaded() \
  && depthShader.isLoaded() \
- && textShader.isLoaded() \
  && lineShader.isLoaded())
     return true;
   else
