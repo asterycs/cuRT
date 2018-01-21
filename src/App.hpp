@@ -7,7 +7,6 @@
 #include "ModelLoader.hpp"
 #include "GLContext.hpp"
 #include "GLTexture.hpp"
-#include "UI.hpp"
 
 #ifdef ENABLE_CUDA
   #include "CudaRenderer.hpp"
@@ -58,7 +57,6 @@ private:
     ActiveRenderer activeRenderer;
 
     GLContext glcontext;
-    UI ui;
 #ifdef ENABLE_CUDA
     CudaRenderer cudaRenderer;
 #endif

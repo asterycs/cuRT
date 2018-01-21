@@ -18,6 +18,7 @@
 #include "GLTexture.hpp"
 #include "GLShader.hpp"
 #include "GLShadowMap.hpp"
+#include "UI.hpp"
 
 
 
@@ -32,6 +33,9 @@ public:
   void draw(const GLTexture& canvas);
   void draw(const std::vector<glm::fvec3>& points, const Camera& camera);
   void draw(const AABB& box, const Camera& camera);
+
+  void drawUI();
+  bool UiWantsMouseInput();
   void resize(const glm::ivec2& newSize);
   bool shadersLoaded() const;
   
@@ -79,6 +83,8 @@ private:
   bool ftOperational;
   FT_Library ft;
   FT_Face face;
+
+  UI ui;
 };
 
 #endif // GLCONTEXT_HPP

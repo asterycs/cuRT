@@ -25,6 +25,7 @@ public:
   void operator=(GLTexture& that) = delete;
   ~GLTexture();
 
+  void load(const unsigned char* pixels, const glm::ivec2 size, const GLenum internalFormat = GL_RGBA32F);
   void resize(const glm::ivec2 newSize);
   GLuint getTextureID() const;
   glm::ivec2 getSize() const;
@@ -43,7 +44,7 @@ private:
 
 #ifdef ENABLE_CUDA
   cudaGraphicsResource_t cudaCanvasResource;
-  cudaArray_t canvasCudaArray;
+  cudaArray_t cudaCanvasArray;
 #endif
 };
 

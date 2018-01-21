@@ -60,6 +60,7 @@ ExternalProject_Add(assimp
     LOG_CONFIGURE 1
     LOG_BUILD 1
     LOG_INSTALL 1
+    PATCH_COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/assimp_improve_obj.patch
     INSTALL_DIR "${CMAKE_BINARY_DIR}/ext/assimp"
     CMAKE_ARGS
        "-DASSIMP_BUILD_TESTS=OFF"
@@ -119,8 +120,10 @@ ExternalProject_Add(
     GIT_TAG 0.9.9-a2
     GIT_PROGRESS 1
     UPDATE_DISCONNECTED 1
-    UPDATE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
     LOG_DOWNLOAD 1
+    UPDATE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
     )
 
 ExternalProject_Get_Property(glm SOURCE_DIR)
@@ -162,20 +165,16 @@ ExternalProject_Add(
     CONFIGURE_COMMAND ""
     UPDATE_COMMAND ""
     BUILD_COMMAND ""
+    PATCH_COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/imgui_change_gl_loader.patch
     INSTALL_COMMAND ""
     )
 
 ExternalProject_Get_Property(imgui SOURCE_DIR)
-set(IMGUI_INCLUDE_DIRS ${SOURCE_DIR})
-set(IMGUI_SRC_FILES ${SOURCE_DIR}/imconfig.h
-                    ${SOURCE_DIR}/imgui.cpp
-                    ${SOURCE_DIR}/imgui.h
+set(IMGUI_INCLUDE_DIRS ${SOURCE_DIR} ${SOURCE_DIR}/examples/opengl3_example)
+set(IMGUI_SRC_FILES ${SOURCE_DIR}/imgui.cpp
                     ${SOURCE_DIR}/imgui_draw.cpp
-                    ${SOURCE_DIR}/imgui_internal.h
                     ${SOURCE_DIR}/imgui_demo.cpp
-                    ${SOURCE_DIR}/stb_rect_pack.h
-                    ${SOURCE_DIR}/stb_textedit.h
-                    ${SOURCE_DIR}/stb_truetype.h
+                    ${SOURCE_DIR}/examples/opengl3_example/imgui_impl_glfw_gl3.cpp
                     )
 
 # glew

@@ -14,7 +14,15 @@ Have a look at the CMakeLists.txt but in short:
 - Cuda toolkit 8.0 (9.0 seems incompatible with glm)
 - Recent Cuda capable GPU.
 
-Most dependencies are handled with CMake.
+This program additionally uses:
+- Assimp for model loading
+- Dear IMGUI for user interface
+- Nativefiledialog
+- cxxopts
+- glm
+- glfw3
+
+These dependencies are handled by CMake.
 
 ### Build
 ```

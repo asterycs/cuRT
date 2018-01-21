@@ -17,7 +17,6 @@ App::App() :
     mousePrevPos(glcontext.getCursorPos()),
     activeRenderer(ActiveRenderer::GL),
     glcontext(),
-    ui(),
 #ifdef ENABLE_CUDA
     cudaRenderer(),
 #endif
@@ -79,6 +78,8 @@ void App::MainLoop()
 #endif
     }
 
+    glcontext.drawUI();
+
     float cTime = glcontext.getTime();
     if (cTime - lastUpdated > 0.5f)
     {
@@ -131,12 +132,15 @@ void App::handleControl(float dTime)
   // For mouse
   glm::dvec2 mousePos = glcontext.getCursorPos();
 
-  if (mousePressed)
+  if (!glcontext.UiWantsMouseInput())
   {
-    glm::dvec2 dir = mousePos - mousePrevPos;
+    if (mousePressed)
+    {
+      glm::dvec2 dir = mousePos - mousePrevPos;
 
-    if (glm::length(dir) > 0.0)
-      camera.rotate(dir, dTime);
+      if (glm::length(dir) > 0.0)
+        camera.rotate(dir, dTime);
+    }
   }
 
   mousePrevPos = mousePos;

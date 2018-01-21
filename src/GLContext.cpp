@@ -5,6 +5,8 @@
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtx/component_wise.hpp>
 
+#include <imgui.h>
+
 GLContext::GLContext() :
   lastTime(static_cast<float>(glfwGetTime())),
   fps(0.f),
@@ -13,7 +15,8 @@ GLContext::GLContext() :
   canvasShader(),
   window(nullptr),
   size(WWIDTH, WHEIGHT),
-  ftOperational(false)
+  ftOperational(false),
+  ui()
 {
   if (!glfwInit())
   {
@@ -52,6 +55,8 @@ GLContext::GLContext() :
 
   // Defuse bogus error
   glGetError();
+
+  ui.init(window);
 
   GL_CHECK(glClearColor(0.2f, 0.25f, 0.3f, 1.0f));
   GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
@@ -274,6 +279,21 @@ std::string GLContext::getFPS()
   }
 
   return s;
+}
+
+void GLContext::drawUI()
+{
+  ui.draw();
+}
+
+bool GLContext::UiWantsMouseInput()
+{
+  ImGuiIO& io = ImGui::GetIO();
+
+  if (io.WantCaptureMouse || io.WantMoveMouse)
+    return true;
+  else
+    return false;
 }
 
 void GLContext::draw(const GLModel& model, const GLLight& light, const Camera& camera)
@@ -529,6 +549,8 @@ void GLContext::resize(const glm::ivec2& newSize)
 {
   GL_CHECK(glViewport(0,0,newSize.x, newSize.y));
   this->size = newSize;
+
+  ui.resize(newSize);
 }
 
 void GLContext::draw(const std::vector<glm::fvec3>& points, const Camera& camera)
