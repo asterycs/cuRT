@@ -9,7 +9,7 @@ endif(ENABLE_CUDA)
 file(GLOB SHADERS "shaders/*/*.glsl")
 source_group("shaders" FILES SHADERS)
 
-add_executable(graphx ${CXX_SRC} ${CXX_CU_SRC} ${CU_SRC} ${IMGUI_SRC_FILES})
+add_executable(graphx ${CXX_SRC} ${CXX_CU_SRC} ${CU_SRC})
 add_dependencies(graphx assimp glfw glm cxxopts nativefiledialog)
 
 target_link_libraries(graphx ${LINK_LIBS})

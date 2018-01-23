@@ -55,8 +55,6 @@ ExternalProject_Add(assimp
     GIT_PROGRESS 1
     UPDATE_DISCONNECTED 1
     LOG_DOWNLOAD 1
-    LOG_UPDATE 1
-    LOG_CONFIGURE 1
     LOG_BUILD 1
     LOG_INSTALL 1
     PATCH_COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/assimp_improve_obj.patch
@@ -97,8 +95,6 @@ ExternalProject_Add(cxxopts
     GIT_PROGRESS 1
     UPDATE_DISCONNECTED 1
     LOG_DOWNLOAD 1
-    LOG_UPDATE 1
-    LOG_CONFIGURE 1
     LOG_BUILD 1
     LOG_INSTALL 1
     INSTALL_DIR "${CMAKE_BINARY_DIR}/ext/cxxopts"
@@ -137,9 +133,6 @@ ExternalProject_Add(
     GIT_PROGRESS 1
     UPDATE_DISCONNECTED 1
     LOG_DOWNLOAD 1
-    LOG_UPDATE 1
-    LOG_CONFIGURE 1
-    LOG_BUILD 1
     LOG_INSTALL 1
     CMAKE_ARGS
         "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/ext/glfw"
@@ -154,38 +147,24 @@ set(GLFW_INCLUDE_DIRS ${INSTALL_DIR}/include)
 set(GLFW_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glfw3${CMAKE_STATIC_LIBRARY_SUFFIX})
 
 # imgui
-#ExternalProject_Add(
-#    imgui
-#    PREFIX ${CMAKE_BINARY_DIR}/ext/imgui
-#    GIT_REPOSITORY https://github.com/ocornut/imgui.git
-#    GIT_PROGRESS 1
-#    UPDATE_DISCONNECTED 1
-#    LOG_DOWNLOAD 1
-#    CONFIGURE_COMMAND ""
-#    UPDATE_COMMAND ""
-#    BUILD_COMMAND ""
-#    PATCH_COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/imgui_change_gl_loader.patch
-#    INSTALL_COMMAND ""
-#    )
+ExternalProject_Add(
+    imgui
+    PREFIX ${CMAKE_BINARY_DIR}/ext/imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_PROGRESS 1
+    UPDATE_DISCONNECTED 1
+    LOG_DOWNLOAD 1
+    PATCH_COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/patches/CMakeLists.txt <SOURCE_DIR>/CMakeLists.txt COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/imgui_change_gl_loader.patch
+    CMAKE_ARGS
+        "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/ext/imgui"
+        "-DGLFW_INCLUDE_DIRS=${GLFW_INCLUDE_DIRS}"
+        "-DCMAKE_BUILD_TYPE=Release"
+    )
 
-IF (NOT EXISTS ${CMAKE_BINARY_DIR}/ext/imgui)
-    execute_process(COMMAND git clone https://github.com/ocornut/imgui.git imgui  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/ext/)
-    execute_process(COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/imgui_change_gl_loader.patch WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/ext/imgui)
-ELSE()
-execute_process(COMMAND git stash WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/ext/imgui OUTPUT_QUIET)
-execute_process(COMMAND git pull WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/ext/imgui OUTPUT_QUIET)
-execute_process(COMMAND git stash pop WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/ext/imgui OUTPUT_QUIET)
-ENDIF()
+ExternalProject_Get_Property(imgui INSTALL_DIR)
+set(IMGUI_INCLUDE_DIRS ${INSTALL_DIR}/include)
+set(IMGUI_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}imgui${CMAKE_STATIC_LIBRARY_SUFFIX})
 
-#ExternalProject_Get_Property(imgui SOURCE_DIR)
-set(IMGUI_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/ext/imgui ${CMAKE_BINARY_DIR}/ext/imgui/examples/opengl3_example)
-set(IMGUI_SRC_FILES ${CMAKE_BINARY_DIR}/ext/imgui/imgui.cpp
-                    ${CMAKE_BINARY_DIR}/ext/imgui/imgui_draw.cpp
-                    ${CMAKE_BINARY_DIR}/ext/imgui/imgui_demo.cpp
-                    ${CMAKE_BINARY_DIR}/ext/imgui/examples/opengl3_example/imgui_impl_glfw_gl3.cpp
-                    )
-
-set_source_files_properties(${IMGUI_SRC_FILES} PROPERTIES GENERATED TRUE)
 
 # glew
 #ExternalProject_Add(glew
@@ -212,14 +191,13 @@ set_source_files_properties(${IMGUI_SRC_FILES} PROPERTIES GENERATED TRUE)
 #set(GLEW_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}GLEW${CMAKE_STATIC_LIBRARY_SUFFIX})
 
 include_directories(
-    ${IMGUI_INCLUDE_DIRS}
     ${GLFW_INCLUDE_DIRS}
+    ${IMGUI_INCLUDE_DIRS}
     ${ASSIMP_INCLUDE_DIRS}
     ${NATIVEFILEDIALOG_INCLUDE_DIRS}
     ${GTK2_INCLUDE_DIRS}
     ${IL_INCLUDE_DIR}
     ${CUDA_INCLUDE_DIRS}
-    ${FREETYPE_INCLUDE_DIRS}
     ${CXXOPTS_INCLUDE_DIRS}
     ${GLM_INCLUDE_DIRS}
 )
@@ -241,9 +219,9 @@ set(LINK_LIBS
     ${GTK2_LIBRARIES}
     ${IL_LIBRARIES}
     ${ILUT_LIBRARIES}
-    ${FREETYPE_LIBRARIES}
     ${CUDA_LIBRARIES}
     ${CUDA_curand_LIBRARY}
+    ${IMGUI_LIBRARIES}
     )
 
 add_custom_target(
