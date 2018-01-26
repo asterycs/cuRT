@@ -36,16 +36,16 @@ Select an .obj file to open by pressing O-key. Hit Enter to switch between CUDA 
 The kernels have been optimized for the NVIDIA GTX 1060 3GB that I own.
 
 ### Current features:
+- Simple BVH based on morton codes
+- SAH based bvh
 - OpenGL preview
     - Shadow maps
     - Ray visualization (ctrl + D)
     - BVH visualization
-- Raytracer in CUDA
+- A ray tracer and a path tracer in CUDA
     - Area lights with soft shadows and quasirandom sampling
     - Reflections
     - Refractions
-    - Simple BVH based on morton codes
-    - SAH based bvh
 
 ### Planned improvements:
 - Better BVH
