@@ -9,9 +9,9 @@
 
 GLTexture::GLTexture()
   : textureID(0),
-    internalFormat(GL_RGBA32F),
+    internalFormat(GL_RGBA32F)
 #ifdef ENABLE_CUDA
-  cudaCanvasResource(),
+  , cudaCanvasResource(),
   cudaCanvasArray()
 #endif
 {
@@ -19,9 +19,9 @@ GLTexture::GLTexture()
 }
 
 GLTexture::GLTexture(const glm::ivec2& newSize, const GLenum internalFormat)
-  : textureID(0),
+  : textureID(0)
 #ifdef ENABLE_CUDA
-  cudaCanvasResource(),
+  , cudaCanvasResource(),
   cudaCanvasArray()
 #endif
 {
@@ -94,12 +94,12 @@ glm::ivec2 GLTexture::getSize() const
   return size;
 }
 
+#ifdef ENABLE_CUDA
 void GLTexture::cudaUnmap()
 {
   CUDA_CHECK(cudaGraphicsUnmapResources(1, &cudaCanvasResource));
 }
 
-#ifdef ENABLE_CUDA
 cudaSurfaceObject_t GLTexture::getCudaMappedSurfaceObject()
 {
   CUDA_CHECK(cudaGraphicsMapResources(1, &cudaCanvasResource));

@@ -37,8 +37,10 @@ public:
     void loadSceneFile(const std::string& filename);
     void loadModel(const std::string& modelFile);
 
+#ifdef ENABLE_CUDA
     void rayTraceToFile(const std::string& sceneFile, const std::string& outFile);
     void pathTraceToFile(const std::string& sceneFile, const std::string& outFile, const int paths);
+#endif
 private:
     App();
     ~App();

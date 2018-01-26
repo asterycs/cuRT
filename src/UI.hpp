@@ -6,9 +6,11 @@
 class GLFWwindow;
 
 enum ActiveRenderer {
-  GL,
-  RAYTRACER,
+  GL
+#ifdef ENABLE_CUDA
+  , RAYTRACER,
   PATHTRACER
+#endif
 };
 
 enum DebugMode

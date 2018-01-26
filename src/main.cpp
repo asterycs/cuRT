@@ -31,7 +31,7 @@ int main(int argc, char * argv[]) {
 
     if (batch_render)
     {
-
+#ifdef ENABLE_CUDA
       if (!options.count("renderer"))
       {
         std::cerr << "No renderer specified" << std::endl;
@@ -88,7 +88,10 @@ int main(int argc, char * argv[]) {
       {
         std::cout << e.what() << std::endl;
       }
-
+#else
+    std::cerr << "Compiled without CUDA support, no batch rendering possible. Exiting..." << std::endl;
+    return EXIT_FAILURE;
+#endif
   }else{
 
     try
@@ -104,8 +107,9 @@ int main(int argc, char * argv[]) {
     catch (std::exception& e)
     {
       std::cout << e.what() << std::endl;
+      return EXIT_FAILURE;
     }
   }
 
-  return 0;
+  return EXIT_SUCCESS;
 }

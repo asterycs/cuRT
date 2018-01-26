@@ -57,7 +57,7 @@ ExternalProject_Add(assimp
     LOG_DOWNLOAD 1
     LOG_BUILD 1
     LOG_INSTALL 1
-    PATCH_COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/assimp_improve_obj.patch
+    PATCH_COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/assimp_improve_obj.patch || true
     INSTALL_DIR "${CMAKE_BINARY_DIR}/ext/assimp"
     CMAKE_ARGS
        "-DASSIMP_BUILD_TESTS=OFF"
@@ -117,6 +117,7 @@ ExternalProject_Add(
     UPDATE_DISCONNECTED 1
     LOG_DOWNLOAD 1
     UPDATE_COMMAND ""
+    CONFIGURE_COMMAND ""
     BUILD_COMMAND ""
     INSTALL_COMMAND ""
     )
@@ -154,7 +155,7 @@ ExternalProject_Add(
     GIT_PROGRESS 1
     UPDATE_DISCONNECTED 1
     LOG_DOWNLOAD 1
-    PATCH_COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/patches/CMakeLists.txt <SOURCE_DIR>/CMakeLists.txt COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/imgui_change_gl_loader.patch
+    PATCH_COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/patches/CMakeLists.txt <SOURCE_DIR>/CMakeLists.txt COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/imgui_change_gl_loader.patch || true
     CMAKE_ARGS
         "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/ext/imgui"
         "-DGLFW_INCLUDE_DIRS=${GLFW_INCLUDE_DIRS}"

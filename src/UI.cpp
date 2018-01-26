@@ -44,6 +44,8 @@ void UI::draw(const enum ActiveRenderer activeRenderer, const enum DebugMode deb
         case GL:
           ImGui::Text("OpenGL");
           break;
+
+#ifdef ENABLE_CUDA
         case RAYTRACER:
           ImGui::Text("Raytracer");
           break;
@@ -51,6 +53,7 @@ void UI::draw(const enum ActiveRenderer activeRenderer, const enum DebugMode deb
         case PATHTRACER:
           ImGui::Text("Pathtracer");
           break;
+#endif
 
         default:
           break;

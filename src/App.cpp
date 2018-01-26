@@ -231,7 +231,9 @@ void App::keyboardCallback(int key, int /*scancode*/, int action, int modifiers)
   {
     activeRenderer = static_cast<ActiveRenderer>((activeRenderer + 1) % 3);
     debugPoints.clear();
+#ifdef ENABLE_CUDA
     cudaRenderer.reset();
+#endif
   }
   else if (key == GLFW_KEY_O && action == GLFW_PRESS)
   {
@@ -349,6 +351,7 @@ void App::loadSceneFile(const std::string& filename)
   std::cout << "Loaded scene file " << filename << std::endl;
 }
 
+#ifdef ENABLE_CUDA
 void App::rayTraceToFile(const std::string& sceneFile, const std::string& /*outfile*/)
 {
   loadSceneFile(sceneFile);
@@ -376,7 +379,6 @@ void App::pathTraceToFile(const std::string& sceneFile, const std::string& /*out
 {
   loadSceneFile(sceneFile);
 
-#ifdef ENABLE_CUDA
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
@@ -397,7 +399,8 @@ void App::pathTraceToFile(const std::string& sceneFile, const std::string& /*out
   }
 
   std::cout << "Rendering time [ms]: " << passedTime << std::endl;
-#endif
 
   return;
 }
+#endif
+
