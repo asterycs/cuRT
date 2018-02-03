@@ -42,16 +42,16 @@ void UI::draw(const enum ActiveRenderer activeRenderer, const enum DebugMode deb
       switch (activeRenderer)
       {
         case GL:
-          ImGui::Text("OpenGL");
+          ImGui::Text("Renderer (enter): OpenGL");
           break;
 
 #ifdef ENABLE_CUDA
         case RAYTRACER:
-          ImGui::Text("Raytracer");
+          ImGui::Text("Renderer (enter): Raytracer");
           break;
 
         case PATHTRACER:
-          ImGui::Text("Pathtracer");
+          ImGui::Text("Renderer (enter): Pathtracer");
           break;
 #endif
 
@@ -72,6 +72,11 @@ void UI::draw(const enum ActiveRenderer activeRenderer, const enum DebugMode deb
           ImGui::Text("Debug (ctrl + D): None");
           break;
       }
+
+      ImGui::Text("Open model: O");
+      ImGui::Text("Open scene file: Ctrl+O");
+      ImGui::Text("Save scene file: Ctrl+S");
+
 
       if (ImGui::BeginPopupContextWindow())
       {

@@ -84,7 +84,8 @@ void App::MainLoop()
     glcontext.swapBuffers();
   }
 
-  createSceneFile(LAST_SCENEFILE_NAME);
+  if (glmodel.getFileName() != "") // Check if model is loaded
+    createSceneFile(LAST_SCENEFILE_NAME);
 }
 
 void App::drawDebugInfo()
