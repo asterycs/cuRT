@@ -36,6 +36,7 @@ public:
     void createSceneFile(const std::string& filename);
     void loadSceneFile(const std::string& filename);
     void loadModel(const std::string& modelFile);
+    void writeTextureToFile(const GLTexture& texture, const std::string& fileName);
 
 #ifdef ENABLE_CUDA
     void rayTraceToFile(const std::string& sceneFile, const std::string& outFile);

@@ -28,8 +28,15 @@ class Model;
           call; \
           CheckOpenGLError(#call, __FILE__, __LINE__); \
       } while (0)
+
+  #define IL_CHECK(call) do { \
+        call; \
+        CheckILError(#call, __FILE__, __LINE__); \
+    } while (0)
+
 #else
   #define GL_CHECK(call) call
+  #define IL_CHECK(call) call
 #endif
 
 #ifdef ENABLE_CUDA
@@ -46,7 +53,7 @@ class Model;
 #endif
 
 void CheckCudaError(const char* stmt, const char* fname, int line);
-
+void CheckILError(const char* stmt, const char* fname, int line);
 void CheckOpenGLError(const char* call, const char* fname, int line);
 
 std::string readFile(const std::string& filePath);

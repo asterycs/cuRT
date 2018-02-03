@@ -19,17 +19,19 @@ class GLTexture
 {
 public:
   GLTexture();
-  GLTexture(const unsigned char* pixels, const glm::ivec2 size, const GLenum internalFormat = GL_RGBA32F);
-  GLTexture(const glm::ivec2& size, const GLenum internalFormat = GL_RGBA32F);
+  GLTexture(const unsigned char* pixels, const glm::ivec2 size);
+  GLTexture(const glm::ivec2& size);
   GLTexture(GLTexture const& that) = delete;
   void operator=(GLTexture& that) = delete;
   ~GLTexture();
 
-  void load(const unsigned char* pixels, const glm::ivec2 size, const GLenum internalFormat = GL_RGBA32F);
+  void load(const unsigned char* pixels, const glm::ivec2 size);
   void resize(const glm::ivec2 newSize);
   GLuint getTextureID() const;
   glm::ivec2 getSize() const;
   GLenum getInternalFormat() const;
+  GLenum getFormat() const;
+  GLenum getType() const;
 
 #ifdef ENABLE_CUDA
   void cudaUnmap();
@@ -41,6 +43,8 @@ private:
   glm::ivec2 size;
 
   GLenum internalFormat;
+  GLenum format;
+  GLenum type;
 
 #ifdef ENABLE_CUDA
   cudaGraphicsResource_t cudaCanvasResource;

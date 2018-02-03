@@ -11,6 +11,11 @@
 
 #include "nfd.h"
 
+#define ILUT_USE_OPENGL
+#include <IL/il.h>
+#include <IL/ilu.h>
+#include <IL/ilut.h>
+
 App::App() :
     debugPoints(),
     mousePressed(false),
@@ -22,13 +27,14 @@ App::App() :
 #endif
     glmodel(),
     gllight(),
-    glcanvas(glm::ivec2(WWIDTH, WHEIGHT), GL_RGBA32F),
+    glcanvas(glm::ivec2(WWIDTH, WHEIGHT)),
     camera(),
     loader(),
     debugMode(DebugMode::NONE),
     debugBboxPtr(0u)
 {
-
+  ilInit();
+  iluInit();
 }
 
 App::~App()
@@ -353,7 +359,7 @@ void App::loadSceneFile(const std::string& filename)
 }
 
 #ifdef ENABLE_CUDA
-void App::rayTraceToFile(const std::string& sceneFile, const std::string& /*outfile*/)
+void App::rayTraceToFile(const std::string& sceneFile, const std::string& outfile)
 {
   loadSceneFile(sceneFile);
 
@@ -370,13 +376,14 @@ void App::rayTraceToFile(const std::string& sceneFile, const std::string& /*outf
   float millis = 0;
   cudaEventElapsedTime(&millis, start, stop);
 
+  writeTextureToFile(glcanvas, outfile);
   std::cout << "Rendering time [ms]: " << millis << std::endl;
 #endif
 
   return;
 }
 
-void App::pathTraceToFile(const std::string& sceneFile, const std::string& /*outfile*/, const int paths)
+void App::pathTraceToFile(const std::string& sceneFile, const std::string& outfile, const int paths)
 {
   loadSceneFile(sceneFile);
 
@@ -399,9 +406,32 @@ void App::pathTraceToFile(const std::string& sceneFile, const std::string& /*out
     passedTime += millis * 1e-3;
   }
 
+  writeTextureToFile(glcanvas, outfile);
   std::cout << "Rendering time [ms]: " << passedTime << std::endl;
 
   return;
 }
 #endif
+
+void App::writeTextureToFile(const GLTexture& texture, const std::string& fileName)
+{
+  ILuint imgID;
+
+  IL_CHECK(ilGenImages(1, &imgID));
+  IL_CHECK(ilBindImage(imgID));
+
+  const glm::ivec2 size = texture.getSize();
+  std::vector<unsigned char> img(size.x*size.y*3);
+
+  GL_CHECK(glBindTexture(GL_TEXTURE_2D, texture.getTextureID()));
+  GL_CHECK(glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, img.data()));
+
+  IL_CHECK(ilTexImage(size.x, size.y, 1, 3, IL_RGB, IL_UNSIGNED_BYTE, img.data()));
+
+  IL_CHECK(ilEnable(IL_FILE_OVERWRITE));
+  IL_CHECK(ilSaveImage(fileName.c_str()));
+
+  IL_CHECK(ilDeleteImages(1, &imgID));
+  GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
+}
 

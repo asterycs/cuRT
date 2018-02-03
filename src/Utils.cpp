@@ -6,6 +6,9 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 
+#define ILUT_USE_OPENGL
+#include <IL/ilu.h>
+
 #include <glm/gtx/component_wise.hpp>
 
 #ifdef ENABLE_CUDA
@@ -35,6 +38,22 @@ void CheckOpenGLError(const char* call, const char* fname, int line)
     std::cerr << "At: " << fname << ":" << line << std::endl \
      << " OpenGL call: " << call << std::endl \
       << " Error: " << errorStr << std::endl;
+  }
+}
+
+void CheckILError(const char* call, const char* fname, int line)
+{
+  ILenum error = ilGetError();
+
+  if (error != IL_NO_ERROR) {
+    do {
+      std::string errStr = iluErrorString(error);
+
+      std::cerr << "At: " << fname << ":" << line << std::endl \
+       << " IL call: " << call << std::endl \
+        << " Error: " << errStr << std::endl;
+
+    } while ((error = ilGetError ()));
   }
 }
 

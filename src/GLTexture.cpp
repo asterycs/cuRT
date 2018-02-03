@@ -9,7 +9,9 @@
 
 GLTexture::GLTexture()
   : textureID(0),
-    internalFormat(GL_RGBA32F)
+    internalFormat(GL_RGBA32F),
+    format(GL_RGBA),
+    type(GL_FLOAT)
 #ifdef ENABLE_CUDA
   , cudaCanvasResource(),
   cudaCanvasArray()
@@ -18,17 +20,20 @@ GLTexture::GLTexture()
 
 }
 
-GLTexture::GLTexture(const glm::ivec2& newSize, const GLenum internalFormat)
-  : textureID(0)
+GLTexture::GLTexture(const glm::ivec2& newSize)
+  : textureID(0),
+    internalFormat(GL_RGBA32F),
+    format(GL_RGBA),
+    type(GL_FLOAT)
 #ifdef ENABLE_CUDA
   , cudaCanvasResource(),
   cudaCanvasArray()
 #endif
 {
-  load(NULL, newSize, internalFormat);
+  load(nullptr, newSize);
 }
 
-void GLTexture::load(const unsigned char* pixels, const glm::ivec2 size, const GLenum internalFormat)
+void GLTexture::load(const unsigned char* pixels, const glm::ivec2 size)
 {
   this->size = size;
 
@@ -45,8 +50,8 @@ void GLTexture::load(const unsigned char* pixels, const glm::ivec2 size, const G
     size.x,
     size.y,
     0,
-    GL_RGBA,
-    GL_FLOAT,
+    format,
+    type,
     pixels
   ));
 
@@ -76,8 +81,8 @@ void GLTexture::resize(const glm::ivec2 newSize)
     size.x,
     size.y,
     0,
-    GL_RGBA,
-    GL_FLOAT,
+    format,
+    type,
     NULL
   ));
   GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
@@ -92,6 +97,21 @@ GLuint GLTexture::getTextureID() const
 glm::ivec2 GLTexture::getSize() const
 {
   return size;
+}
+
+GLenum GLTexture::getInternalFormat() const
+{
+  return internalFormat;
+}
+
+GLenum GLTexture::getFormat() const
+{
+  return format;
+}
+
+GLenum GLTexture::getType() const
+{
+  return type;
 }
 
 #ifdef ENABLE_CUDA
