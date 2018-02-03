@@ -90,7 +90,7 @@ set(NATIVEFILEDIALOG_LIBRARIES "${CMAKE_BINARY_DIR}/ext/nativefiledialog/src/nat
 ExternalProject_Add(cxxopts
     PREFIX "${CMAKE_BINARY_DIR}/ext/cxxopts"
     GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-    GIT_TAG 1_0
+    GIT_TAG 2_0
     GIT_PROGRESS 1
     UPDATE_DISCONNECTED 1
     LOG_DOWNLOAD 1

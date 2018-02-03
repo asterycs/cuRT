@@ -27,6 +27,9 @@ public:
 
   void load(const unsigned char* pixels, const glm::ivec2 size);
   void resize(const glm::ivec2 newSize);
+
+  //template <typename T>
+  //std::vector<T> getHostData();
   GLuint getTextureID() const;
   glm::ivec2 getSize() const;
   GLenum getInternalFormat() const;

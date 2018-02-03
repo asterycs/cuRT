@@ -9,42 +9,36 @@ int main(int argc, char * argv[]) {
 
   bool batch_render = false;
 
-  cxxopts::Options options(argv[0], " - example command line options");
-  options.positional_help("[optional args]");
+  cxxopts::Options options(argv[0], "");
 
   options.add_options()
     ("b,batch",     "Batch render",         cxxopts::value<bool>(batch_render))
-    ("r,renderer",  "Renderer type",        cxxopts::value<int>())
+    ("r,renderer",  "Renderer type",        cxxopts::value<std::string>())
     ("p,paths",     "Number of paths",      cxxopts::value<int>())
     ("s,scene",     "Scene file",           cxxopts::value<std::string>(),  "FILE")
     ("o,output",    "Output file",          cxxopts::value<std::string>(),  "FILE");
 
 
-    try
-    {
-        options.parse(argc, argv);
-    }catch (const cxxopts::OptionException& e)
-    {
-      std::cout << "Invalid parameter: " << e.what() << std::endl;
-      return 1;
-    }
+
+    auto optres = options.parse(argc, argv);
+
 
     if (batch_render)
     {
 #ifdef ENABLE_CUDA
-      if (!options.count("renderer"))
+      if (!optres.count("renderer"))
       {
         std::cerr << "No renderer specified" << std::endl;
         return 1;
       }
 
-      if (!options.count("scene"))
+      if (!optres.count("scene"))
       {
         std::cerr << "No scene file specified" << std::endl;
         return 1;
       }
 
-      if (!options.count("output"))
+      if (!optres.count("output"))
       {
         std::cerr << "No output file specified" << std::endl;
         return 1;
@@ -52,37 +46,35 @@ int main(int argc, char * argv[]) {
 
 
 
-      std::string scenefile = options["scene"].as<std::string>();
-      std::string output = options["output"].as<std::string>();
-      int renderer = options["renderer"].as<int>();
+      std::string scenefile = optres["scene"].as<std::string>();
+      std::string output = optres["output"].as<std::string>();
+      std::string renderer = optres["renderer"].as<std::string>();
       int paths = 0;
 
-      if (renderer == 1)
+      if (renderer == "pathtrace")
       {
-        if (!options.count("paths"))
+        if (!optres.count("paths"))
         {
           std::cerr << "Number of paths not specified" << std::endl;
           return 1;
         }else
-          paths = options["paths"].as<int>();
+          paths = optres["paths"].as<int>();
       }
 
       try
       {
         App& app = App::getInstance();
 
-        switch (renderer)
+        if (renderer == "raytrace")
         {
-        case 0:
           app.rayTraceToFile(scenefile, output);
-          break;
-        case 1:
-          app.pathTraceToFile(scenefile, output, paths);
-          break;
-
-        default:
-          std::cout << "Unknown renderer" << std::endl;
         }
+        else if (renderer == "pathtrace")
+        {
+          app.pathTraceToFile(scenefile, output, paths);
+        }else
+          std::cout << "Unknown renderer" << std::endl;
+
       }
       catch (std::exception& e)
       {

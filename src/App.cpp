@@ -391,23 +391,20 @@ void App::pathTraceToFile(const std::string& sceneFile, const std::string& outfi
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
 
-  float passedTime = 0.f;
+  cudaEventRecord(start);
 
   for (int i = 0; i < paths; ++i)
   {
-    cudaEventRecord(start);
     cudaRenderer.pathTraceToCanvas(glcanvas, camera, glmodel, gllight);
-    cudaEventRecord(stop);
-
-    cudaEventSynchronize(stop);
-    float millis = 0;
-    cudaEventElapsedTime(&millis, start, stop);
-
-    passedTime += millis * 1e-3;
   }
 
+  cudaEventRecord(stop);
+  cudaEventSynchronize(stop);
+  float millis = 0;
+  cudaEventElapsedTime(&millis, start, stop);
+
   writeTextureToFile(glcanvas, outfile);
-  std::cout << "Rendering time [ms]: " << passedTime << std::endl;
+  std::cout << "Rendering time [ms]: " << millis << std::endl;
 
   return;
 }
@@ -421,17 +418,36 @@ void App::writeTextureToFile(const GLTexture& texture, const std::string& fileNa
   IL_CHECK(ilBindImage(imgID));
 
   const glm::ivec2 size = texture.getSize();
-  std::vector<unsigned char> img(size.x*size.y*3);
+
+  // Direct copy of the texture does not seem to work. Must pass it via a PBO.
+  // Some others seem to experience the same: https://devtalk.nvidia.com/default/topic/913544/glgetteximage-gives-blank-result-after-cuda-surface-write/
+  GLuint  pbo;
+  GL_CHECK(glGenBuffers(1, &pbo));
+  GL_CHECK(glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo));
+  GL_CHECK(glBufferData(GL_PIXEL_PACK_BUFFER, size.x*size.y*3*sizeof(float), nullptr, GL_STREAM_COPY));
 
   GL_CHECK(glBindTexture(GL_TEXTURE_2D, texture.getTextureID()));
-  GL_CHECK(glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, img.data()));
 
-  IL_CHECK(ilTexImage(size.x, size.y, 1, 3, IL_RGB, IL_UNSIGNED_BYTE, img.data()));
+  GL_CHECK(glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, NULL));
+  void *mem = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+
+  // When asking OpenGL kindly for GL_UNSIGNED_BYTE data with glGetTexImage the result is just zeros.
+  // Workaround by asking GL_FLOAT and manually converting.
+  std::vector<unsigned char> tmp(size.x*size.y*3, 255);
+
+  for (int i = 0; i < size.x*size.y*3; ++i)
+  {
+    tmp[i] *= *(static_cast<float*>(mem) + i);
+  }
+
+  IL_CHECK(ilTexImage(size.x, size.y, 1, 3, IL_RGB, IL_UNSIGNED_BYTE, tmp.data()));
 
   IL_CHECK(ilEnable(IL_FILE_OVERWRITE));
   IL_CHECK(ilSaveImage(fileName.c_str()));
 
+  GL_CHECK(glDeleteBuffers(1, &pbo));
   IL_CHECK(ilDeleteImages(1, &imgID));
   GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
+  GL_CHECK(glBindBuffer(GL_PIXEL_PACK_BUFFER, 0));
 }
 
