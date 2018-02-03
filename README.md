@@ -15,6 +15,7 @@ Have a look at the CMakeLists.txt but in short:
 
 This program additionally uses:
 - Assimp for model loading
+  - With a small patch that can be found under patches/
 - Dear IMGUI for user interface
 - Nativefiledialog
 - cxxopts
