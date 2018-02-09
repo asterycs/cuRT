@@ -32,7 +32,7 @@ public:
   void reset();
 
 private:
-  thrust::device_vector<CURAND_TYPE> curandStateDevVecX; // For area light sampling
+  thrust::device_vector<CURAND_TYPE> curandStateDevVecX; // For light and path sampling
   thrust::device_vector<CURAND_TYPE> curandStateDevVecY;
 
   Camera lastCamera;

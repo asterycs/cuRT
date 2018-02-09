@@ -18,8 +18,9 @@
 #define INTERSECT_EPSILON 0.0000001f
 #define OFFSET_EPSILON 0.00001f
 #define BIGT 99999.f
-#define SHADOWSAMPLING 8
-#define SECONDARY_RAYS 3
+
+#define RT_SHADOWSAMPLING 8
+#define RT_SECONDARY_RAYS 3
 #define AIR_INDEX 1.f
 
 #define REFLECTIVE_BIT 0x80000000
@@ -29,7 +30,7 @@
 #define LEFT_HIT_BIT 0x80000000
 #define RIGHT_HIT_BIT 0x40000000
 
-#define PATH_TRACE_BOUNCES 6
+#define PT_BOUNCES 6
 
 inline __device__ float fresnelReflectioncoefficient(const float sin2t, const float cosi, const float idx1, const float idx2)
 {
@@ -332,7 +333,7 @@ __device__ glm::fvec3 rayTrace(\
     curandStateType& curandState2, \
     glm::fvec3* hitPoints = nullptr)
 {
-  constexpr unsigned int stackSize = cpow(2, SECONDARY_RAYS);
+  constexpr unsigned int stackSize = cpow(2, RT_SECONDARY_RAYS);
   RaycastTask stack[stackSize];
   glm::fvec3 color(0.f);
   int stackPtr = 0;
@@ -340,7 +341,7 @@ __device__ glm::fvec3 rayTrace(\
 
   // Primary ray
   stack[stackPtr].outRay = ray;
-  stack[stackPtr].levelsLeft = SECONDARY_RAYS;
+  stack[stackPtr].levelsLeft = RT_SECONDARY_RAYS;
   stack[stackPtr].filter = glm::fvec3(1.f);
   ++stackPtr;
 
@@ -373,7 +374,7 @@ __device__ glm::fvec3 rayTrace(\
 
     color += currentTask.filter * material.colorAmbient * 0.25f;
 
-    const glm::fvec3 brightness = areaLightShading<SHADOWSAMPLING>(interpolatedNormal, light, bvh, result, triangles, curandState1, curandState2);
+    const glm::fvec3 brightness = areaLightShading<RT_SHADOWSAMPLING>(interpolatedNormal, light, bvh, result, triangles, curandState1, curandState2);
     color += currentTask.filter * material.colorDiffuse / glm::pi<float>() * brightness;
 
     if (material.shadingMode == material.GORAUD)
@@ -417,8 +418,6 @@ __device__ glm::fvec3 rayTrace(\
           rat = __fdividef(idx1, idx2);
         else
           rat = __fdividef(idx2, idx1);
-
-        // Something's not right here...
 
         // Transmittance and reflection according to fresnel
         const float cosi = fabsf(glm::dot(currentTask.outRay.direction, interpolatedNormal));
@@ -480,7 +479,7 @@ __device__ glm::fvec3 pathTrace(\
   float p = 1.0f;
   bool roulette = false;
 
-  unsigned int bounces = PATH_TRACE_BOUNCES;
+  unsigned int bounces = PT_BOUNCES;
   bool terminate = false;
   unsigned int currentBounce = 0;
 
@@ -574,7 +573,7 @@ __device__ glm::fvec3 pathTrace(\
       {
         newDir = reflectionDirection(interpolatedNormal, currentRay.direction);
         newOrig = result.point + interpolatedNormal * OFFSET_EPSILON;
-        throughput *= material.colorSpecular;
+        throughput *= material.colorSpecular / rP;
       }
       else
       {
@@ -1046,8 +1045,8 @@ std::vector<glm::fvec3> CudaRenderer::debugRayTrace(const glm::ivec2 pixelPos, c
   dim3 block(1, 1);
   dim3 grid(1, 1);
 
-  unsigned int secondaryVertices = std::pow(2u, SECONDARY_RAYS) == 1 ? 0 : std::pow(2u, SECONDARY_RAYS) * 2;
-  const int nVertices = (2 + secondaryVertices) * SHADOWSAMPLING;
+  unsigned int secondaryVertices = std::pow(2u, RT_SECONDARY_RAYS) == 1 ? 0 : std::pow(2u, RT_SECONDARY_RAYS) * 2;
+  const int nVertices = (2 + secondaryVertices) * RT_SHADOWSAMPLING;
 
   glm::fvec3* devPosPtr;
   CUDA_CHECK(cudaMalloc((void**) &devPosPtr, nVertices * sizeof(glm::fvec3)));
@@ -1089,7 +1088,7 @@ std::vector<glm::fvec3> CudaRenderer::debugPathTrace(const glm::ivec2 pixelPos, 
   dim3 block(1, 1);
   dim3 grid(1, 1);
 
-  const int nVertices = 2 * PATH_TRACE_BOUNCES;
+  const int nVertices = 2 * PT_BOUNCES;
 
   glm::fvec3* devPosPtr;
   CUDA_CHECK(cudaMalloc((void**) &devPosPtr, nVertices * sizeof(glm::fvec3)));
