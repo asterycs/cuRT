@@ -8,14 +8,7 @@
 
 #include "Utils.hpp"
 #include "Triangle.hpp"
-
-#define MAX_TRIS_PER_LEAF 8
-
-enum SplitMode
-{
-  OBJECT_MEDIAN,
-  SAH
-};
+#include "BVHBuilder.hpp"
 
 class Model
 {
@@ -29,14 +22,12 @@ public:
 
   const std::vector<Material>& getBVHBoxMaterials() const;
   const std::vector<MeshDescriptor>& getBVHBoxDescriptors() const;
+  
+  const AABB& getBbox() const;
   const std::vector<Node>& getBVH() const;
   const std::string& getFileName() const;
-  const AABB& getBbox() const;
 private:
   void initialize(const aiScene *scene);
-  std::vector<std::pair<Triangle, unsigned int>> createBVH(const enum SplitMode splitMode);
-  void reorderMeshIndices(const std::vector<std::pair<Triangle, unsigned int>>& trisWithIds);
-  void createBVHColors();
 
   std::vector<Triangle> triangles;
   std::vector<MeshDescriptor> meshDescriptors; // For GL drawing

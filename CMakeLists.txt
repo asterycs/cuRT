@@ -34,7 +34,6 @@ if (OPENMP_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
 find_package(X11 REQUIRED)
-find_package(GLEW REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -77,7 +76,7 @@ ExternalProject_Add(nativefiledialog
     GIT_REPOSITORY https://github.com/mlabbe/nativefiledialog.git
     GIT_PROGRESS 1
     CONFIGURE_COMMAND ""
-    BUILD_COMMAND cd ${CMAKE_BINARY_DIR}/ext/nativefiledialog/src/nativefiledialog/build/gmake_linux && make
+    BUILD_COMMAND cd ${CMAKE_BINARY_DIR}/ext/nativefiledialog/src/nativefiledialog/build/gmake_linux && ${CMAKE_MAKE_PROGRAM}
     INSTALL_COMMAND ""
     UPDATE_DISCONNECTED 1
     )
@@ -154,7 +153,7 @@ ExternalProject_Add(
     GIT_PROGRESS 1
     UPDATE_DISCONNECTED 1
     LOG_DOWNLOAD 1
-    PATCH_COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/patches/CMakeLists.txt <SOURCE_DIR>/CMakeLists.txt COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/imgui_change_gl_loader.patch || true
+    PATCH_COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/patches/CMakeLists_imgui.txt <SOURCE_DIR>/CMakeLists.txt COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/imgui_change_gl_loader.patch || true
     CMAKE_ARGS
         "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
         "-DGLFW_INCLUDE_DIRS=${GLFW_INCLUDE_DIRS}"
@@ -165,7 +164,7 @@ ExternalProject_Get_Property(imgui INSTALL_DIR)
 set(IMGUI_INCLUDE_DIRS ${INSTALL_DIR}/include)
 set(IMGUI_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}imgui${CMAKE_STATIC_LIBRARY_SUFFIX})
 
-ExternalProject_Add (devil
+ExternalProject_Add(devil
     PREFIX ${CMAKE_BINARY_DIR}/ext/devil
     GIT_REPOSITORY "https://github.com/DentonW/DevIL"
     UPDATE_DISCONNECTED 1
@@ -180,30 +179,27 @@ set(IL_INCLUDE_DIRS ${INSTALL_DIR}/include)
 set(IL_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}IL${CMAKE_SHARED_LIBRARY_SUFFIX};${INSTALL_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}ILU${CMAKE_SHARED_LIBRARY_SUFFIX};${INSTALL_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}ILUT${CMAKE_SHARED_LIBRARY_SUFFIX})
 
 # glew
-#ExternalProject_Add(glew
-#    PREFIX ${CMAKE_BINARY_DIR}/ext/glew
-#    GIT_REPOSITORY https://github.com/nigels-com/glew.git
-#    GIT_TAG glew-1.13.0
-#    UPDATE_DISCONNECTED 1
-#    LOG_DOWNLOAD 1
-#    LOG_UPDATE 1
-#    LOG_CONFIGURE 1
-#    LOG_BUILD 1
-#    LOG_INSTALL 1
-#    UPDATE_COMMAND ""
-#    CONFIGURE_COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-#        <SOURCE_DIR>/src
-#    CMAKE_ARGS
-#        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-#        "-DCMAKE_BUILD_TYPE=Release"
-#    )
+ExternalProject_Add(glew
+    PREFIX ${CMAKE_BINARY_DIR}/ext/glew
+    GIT_REPOSITORY https://github.com/nigels-com/glew.git
+    GIT_TAG glew-2.1.0 
+    UPDATE_DISCONNECTED 1
+    LOG_DOWNLOAD 1
+    LOG_CONFIGURE 1
+    LOG_BUILD 1
+    LOG_INSTALL 1
+    PATCH_COMMAND cd ${CMAKE_BINARY_DIR}/ext/glew/src/glew/auto/
+ && ${CMAKE_MAKE_PROGRAM}
+    CONFIGURE_COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR> <SOURCE_DIR>/build/cmake
+    )
 
-#ExternalProject_Get_Property(glew INSTALL_DIR)
-#set(GLEW_INCLUDE_DIRS ${INSTALL_DIR}/include)
-#set(GLEW_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}GLEW${CMAKE_STATIC_LIBRARY_SUFFIX})
+ExternalProject_Get_Property(glew INSTALL_DIR)
+set(GLEW_INCLUDE_DIRS ${INSTALL_DIR}/include)
+set(GLEW_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}GLEW${CMAKE_STATIC_LIBRARY_SUFFIX})
 
 include_directories(
     ${IL_INCLUDE_DIRS}
+    ${GLEW_INCLUDE_DIRS}
     ${GLFW_INCLUDE_DIRS}
     ${IMGUI_INCLUDE_DIRS}
     ${ASSIMP_INCLUDE_DIRS}
@@ -217,7 +213,7 @@ include_directories(
 
 
 set(LINK_LIBS
-    GLEW
+    ${GLEW_LIBRARIES}
     ${GLFW_LIBRARIES}
     ${IL_LIBRARIES}
     GL
