@@ -150,6 +150,7 @@ ExternalProject_Add(
     imgui
     PREFIX ${CMAKE_BINARY_DIR}/ext/imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.53
     GIT_PROGRESS 1
     UPDATE_DISCONNECTED 1
     LOG_DOWNLOAD 1
