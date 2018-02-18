@@ -24,10 +24,14 @@ Model::Model(const aiScene *scene, const std::string& fileName) : fileName(fileN
   initialize(scene);
   
   BVHBuilder bvhbuilder;
-  bvhbuilder.build(SplitMode::SAH, triangles);
+  bvhbuilder.build(SplitMode::SAH, triangles, triangleMaterialIds, meshDescriptors);
   
   this->bvh = bvhbuilder.getBVH();
   this->triangles = bvhbuilder.getTriangles();
+  this->triangleMaterialIds = bvhbuilder.getTriangleMaterialIds();
+  this->meshDescriptors = bvhbuilder.getMeshDescriptors();
+  
+  std::cout << bvh.size() << std::endl;
 }
 
 void Model::initialize(const aiScene *scene)
