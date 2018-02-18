@@ -23,9 +23,12 @@ public:
   
   std::vector<Node> getBVH();
   std::vector<Triangle> getTriangles();
+  std::vector<unsigned int> getTriangleMaterialIds();
+  std::vector<MeshDescriptor> getMeshDescriptors();
   
-  void build(const enum SplitMode splitMode, std::vector<Triangle>& triangles);
+  void build(const enum SplitMode splitMode, const std::vector<Triangle>& triangles, const std::vector<unsigned int>& triangleMaterialIds, const std::vector<MeshDescriptor>& meshDescriptors);
   
+  void reorderTrianglesAndMaterialIds();
   unsigned int expandBits(unsigned int v);
   AABB computeBB(const Node node);
   std::vector<unsigned int> getMortonCodes(const std::vector<Triangle>& triangles, const AABB& boundingBox);

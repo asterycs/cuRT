@@ -166,7 +166,7 @@ std::vector<std::pair<Triangle, unsigned int>> BVHBuilder::sortOnMorton(std::vec
   return triIdx;
 }
 
-std::vector<Triangle> BVHBuilder::getTriangles()
+void BVHBuilder::reorderTrianglesAndMaterialIds()
 {
   std::vector<unsigned int> triIdxMap;
   triIdxMap.resize(trisWithIds.size());
@@ -176,21 +176,15 @@ std::vector<Triangle> BVHBuilder::getTriangles()
     triIdxMap[trisWithIds[i].second] = i;
   }
 
-  std::vector<Triangle> newTriangles(trisWithIds.size());
+  std::vector<unsigned int> orderedTriangleMaterialIds(triangleMaterialIds.size());
 
   for (std::size_t ti = 0; ti < trisWithIds.size(); ++ti)
   {
-    newTriangles[ti] = trisWithIds[ti].first;
+    orderedTriangleMaterialIds[ti] = triangleMaterialIds[trisWithIds[ti].second];
   }
 
-  std::vector<unsigned int> newTriangleMaterialIds(triangleMaterialIds.size());
-
-  for (std::size_t ti = 0; ti < trisWithIds.size(); ++ti)
-  {
-    newTriangleMaterialIds[ti] = triangleMaterialIds[trisWithIds[ti].second];
-  }
-
-  triangleMaterialIds = newTriangleMaterialIds;
+  
+  triangleMaterialIds = orderedTriangleMaterialIds;
 
   std::vector<unsigned int> vertIdxMap(triIdxMap.size() * 3);
 
@@ -210,7 +204,7 @@ std::vector<Triangle> BVHBuilder::getTriangles()
     }
   }
   
-  return newTriangles;
+  return;
 }
 
 bool BVHBuilder::isBalanced(const Node *node, const Node* root, int* height)
@@ -333,26 +327,24 @@ bool BVHBuilder::splitNode(const Node& node, Node& leftChild, Node& rightChild, 
 	  throw std::runtime_error("Unknown BVH split type");
 }
 
-void BVHBuilder::build(const enum SplitMode splitMode, std::vector<Triangle>& triangles)
+void BVHBuilder::build(const enum SplitMode splitMode, const std::vector<Triangle>& triangles, const std::vector<unsigned int>& triangleMaterialIds, const std::vector<MeshDescriptor>& meshDescriptors)
 {
+  this->triangleMaterialIds = triangleMaterialIds;
+  this->meshDescriptors = meshDescriptors;
+  
+  unsigned int idx = 0;
+
+  for (auto t : triangles)
+  {
+    trisWithIds.push_back(std::make_pair(t, idx++));
+  }
+  
   Node root;
   root.startTri = 0;
   root.nTri = triangles.size();
   root.bbox = computeBB(root);
   root.rightIndex = -1;
   
-  if (splitMode == SplitMode::OBJECT_MEDIAN)
-  {
-    trisWithIds = sortOnMorton(triangles, root.bbox);
-  }else
-  {
-    unsigned int idx = 0;
-
-    for (auto t : triangles)
-    {
-      trisWithIds.push_back(std::make_pair(t, idx++));
-    }
-  }
   
   // This is a simple top down approach that places the nodes in an array.
   // This makes the transfer to GPU simple.
@@ -415,10 +407,32 @@ void BVHBuilder::build(const enum SplitMode splitMode, std::vector<Triangle>& tr
   }
 
   this->bvh = finishedNodes;
+  
+  reorderTrianglesAndMaterialIds();
 }
 
 std::vector<Node> BVHBuilder::getBVH()
 {
   return this->bvh;
+}
+
+std::vector<Triangle> BVHBuilder::getTriangles()
+{
+  std::vector<Triangle> triangles(trisWithIds.size());
+  
+  for (unsigned int i = 0; i < trisWithIds.size(); ++i)
+    triangles[i] = trisWithIds[i].first;
+    
+  return triangles;
+}
+
+std::vector<unsigned int> BVHBuilder::getTriangleMaterialIds()
+{
+  return triangleMaterialIds;
+}
+
+std::vector<MeshDescriptor> BVHBuilder::getMeshDescriptors()
+{
+  return meshDescriptors;
 }
 
