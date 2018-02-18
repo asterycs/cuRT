@@ -19,5 +19,22 @@ if (ENABLE_CUDA)
     set_target_properties(graphx PROPERTIES CUDA_STANDARD 14 CUDA_SEPARABLE_COMPILATION ON CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif(ENABLE_CUDA)
 
+set_target_properties(graphx
+    PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
 
+add_custom_target(
+        copy_shader_files
+        ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/src/shaders ${CMAKE_BINARY_DIR}/bin/shaders/
+        COMMENT "Copying shader files for target: graphx" VERBATIM 
+        )
+
+add_custom_target(
+        copy_benchmark_script
+        ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/benchmark.sh ${CMAKE_BINARY_DIR}/bin
+        COMMENT "Copying benchmark script for target: graphx" VERBATIM 
+        )
 
