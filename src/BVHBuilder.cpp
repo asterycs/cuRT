@@ -269,15 +269,15 @@ bool BVHBuilder::splitNode(const Node& node, Node& leftChild, Node& rightChild, 
 
 		float minCost = std::numeric_limits<float>::max();
 		int minStep = -1;
+    const unsigned int a = node.bbox.maxAxis();
 
-		const unsigned int a = node.bbox.maxAxis();
     sortTrisOnAxis(node, a);
-
-    AABB fBox = computeBB(node);
-    std::vector<AABB> fBoxes(node.nTri - 1);
 
     const int fStart = node.startTri;
     const int fEnd = node.startTri + node.nTri - 1;
+
+    AABB fBox = trisWithIds[fStart].first.bbox();
+    std::vector<AABB> fBoxes(node.nTri - 1);
 
     for (int i = fStart; i < fEnd; ++i)
     {
@@ -285,7 +285,7 @@ bool BVHBuilder::splitNode(const Node& node, Node& leftChild, Node& rightChild, 
       fBoxes[i - node.startTri] = fBox;
     }
 
-    AABB rBox = computeBB(node);
+    AABB rBox = trisWithIds[fEnd].first.bbox();
     std::vector<AABB> rBoxes(node.nTri - 1);
 
     for (int i = fEnd - 1; i > fStart - 1; --i)

@@ -46,6 +46,10 @@ struct Triangle {
 		return glm::max(glm::max(vertices[0].p, vertices[1].p), vertices[2].p);
 	}
 
+  CUDA_FUNCTION inline AABB bbox() const {
+    return AABB(max(), min());
+  }
+
   CUDA_FUNCTION glm::vec3 normal() const {
 		return glm::normalize(glm::cross(vertices[1].p - vertices[0].p, vertices[2].p - vertices[0].p));
 	}
