@@ -8,9 +8,8 @@ Have a look at the CMakeLists.txt but in short:
 - CMake 3.10
 - Ubuntu 16.04 or similar
 - libx11-dev
-- libglew-dev
 - libgtk-3-dev
-- Cuda toolkit 8.0 (9.0 seems incompatible with glm)
+- Cuda toolkit
 - Recent Cuda capable GPU.
 
 This program additionally uses:
@@ -21,6 +20,7 @@ This program additionally uses:
 - cxxopts
 - glm
 - glfw3
+- glew
 
 These dependencies are handled by CMake.
 
