@@ -149,8 +149,10 @@ set(GLFW_LIBRARIES ${INSTALL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glfw3${CMAKE
 # imgui
 ExternalProject_Add(
     imgui
+    DEPENDS glfw
     PREFIX ${CMAKE_BINARY_DIR}/ext/imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG 403b2d7
     GIT_PROGRESS 1
     UPDATE_DISCONNECTED 1
     LOG_DOWNLOAD 1
