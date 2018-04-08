@@ -13,7 +13,7 @@ CUDA_HOST_DEVICE Light::Light(const glm::mat4& mat, const glm::vec2& size, const
 
 }
 
-CUDA_HOST_DEVICE Light::Light() : modelMat(1.0f), size(0.f, 0.f), emission(0.f, 0.f, 0.f), enabled(false)
+CUDA_HOST_DEVICE Light::Light() : modelMat(1.0f), size(0.15f, 0.15f), emission(0.f, 0.f, 0.f), enabled(false)
 {
 
 }

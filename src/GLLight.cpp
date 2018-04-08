@@ -69,7 +69,7 @@ void GLLight::load(const Light& light)
   for (unsigned int i = 0; i < nTriangles; ++i)
     triangles.push_back(Triangle(vertices[i*3], vertices[i*3+1], vertices[i*3+2]));
     
-  glm::mat4 depthProjectionMatrix = glm::perspective(glm::half_pi<float>(), (float) light.getSize().x / (float) light.getSize().y, 0.001f, 10.f);
+  glm::fmat4 depthProjectionMatrix = glm::perspective(glm::half_pi<float>(), (float) light.getSize().x / (float) light.getSize().y, 0.001f, 10.f);
   depthMVP = depthProjectionMatrix * glm::inverse(light.getModelMat());
 
   finalizeLoad(triangles, meshDescriptors, materials, triangleMaterialIds);
