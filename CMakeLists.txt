@@ -152,7 +152,7 @@ ExternalProject_Add(
     DEPENDS glfw
     PREFIX ${CMAKE_BINARY_DIR}/ext/imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG 403b2d7
+    GIT_TAG fb7cf4a
     GIT_PROGRESS 1
     UPDATE_DISCONNECTED 1
     LOG_DOWNLOAD 1

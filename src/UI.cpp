@@ -22,7 +22,7 @@ void UI::init(GLFWwindow* window)
 
 UI::~UI()
 {
-
+  ImGui_ImplGlfwGL3_Shutdown();
 }
 
 void UI::draw(const enum ActiveRenderer activeRenderer, const enum DebugMode debugMode)
