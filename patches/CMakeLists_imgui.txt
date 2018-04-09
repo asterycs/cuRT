@@ -2,9 +2,13 @@ cmake_minimum_required(VERSION 3.10)
 project(imgui)
 
 set(GLFW_INCLUDE_DIRS "" CACHE BOOL "GLFW include dir")
+set(GLEW_INCLUDE_DIRS "" CACHE BOOL "GLEW include dir")
 
 if ("${GLFW_INCLUDE_DIRS}" STREQUAL "")
     message(FATAL_ERROR "GLFW_INCLUDE_DIRS not set.")
+endif()
+if ("${GLEW_INCLUDE_DIRS}" STREQUAL "")
+    message(FATAL_ERROR "GLEW_INCLUDE_DIRS not set.")
 endif()
 
 file(GLOB IMGUI_SRC imgui.cpp
@@ -14,7 +18,7 @@ file(GLOB IMGUI_SRC imgui.cpp
 
 add_library(imgui STATIC ${IMGUI_SRC})
 
-target_include_directories(imgui PRIVATE . examples/opengl3_example/ "${GLFW_INCLUDE_DIRS}")
+target_include_directories(imgui PRIVATE . examples/opengl3_example/ "${GLFW_INCLUDE_DIRS}" "${GLEW_INCLUDE_DIRS}")
 
 install(FILES ${CMAKE_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}imgui${CMAKE_STATIC_LIBRARY_SUFFIX}
     DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATAROOTDIR}/lib/)
