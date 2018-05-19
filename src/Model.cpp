@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/component_wise.hpp> 
 
 #include "Utils.hpp"
 
@@ -139,6 +140,18 @@ void Model::initialize(const aiScene *scene)
 
       triangleMaterialIds.push_back(materials.size() - 1);
     }
+  }
+
+  const glm::fvec3 bbDiagonal = maxTri - minTri;
+  const float diagonalMaxComponent = glm::compMax(bbDiagonal);
+
+  for (auto& t : triangles)
+  {
+	  for (auto& v : t.vertices)
+	  {
+		  v.p += minTri;
+		  v.p /= diagonalMaxComponent;
+	  }
   }
 }
 

@@ -5,10 +5,10 @@ set(ENABLE_CUDA ON CACHE BOOL "Enable Cuda features") # Enable by default
 
 # Set project language
 if (ENABLE_CUDA)
-    project(graphx LANGUAGES CXX CUDA)
+    project(cuRT LANGUAGES CXX CUDA)
     add_definitions(-DENABLE_CUDA)
 else()
-    project(graphx LANGUAGES CXX)
+    project(cuRT LANGUAGES CXX)
     message("CUDA features disabled")
 endif(ENABLE_CUDA)
 
